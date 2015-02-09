@@ -1,8 +1,9 @@
+require(ggplot2)
 ####### Parameters #######
 FC2_TH = 1
 FC15_TH = 1
 TH = FC15_TH
-SWATH_SOURCE = "raw"   # raw or processed
+SWATH_SOURCE = "raw"   # "raw" or "processed"
 PN_SAMPLES = c("F163", "F164", "F165")
 PP_SAMPLES = c("F166", "F167", "F168", "F169")
 PROT_FILTER_PV = TRUE
@@ -101,4 +102,7 @@ total$group <- as.factor(apply(total[,c("mrnafc", "protfc")], 1,
 total <- total[ abs(total$mrnafc) > TH |
                 abs(total$protfc) > TH,]
 
-plot(total$mrnafc, total$protfc, pch = 19, col = total$group)
+#plot(total$mrnafc, total$protfc, pch = 19, col = total$group)
+p <- ggplot(total, aes(x=protfc, y=mrnafc, colour = group))
+p <- p + geom_point(size  = 2)
+print(p)
