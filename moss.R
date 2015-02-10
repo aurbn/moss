@@ -54,19 +54,23 @@ else
 }
 
 mrna <- read.table("transcripts.csv", sep = '\t', header = TRUE, stringsAsFactors = FALSE)
+
+id_table <- data.frame(Gene = mrna$Gene, TAIR = mrna$TAIR, stringsAsFactors = FALSE)
+id_table <- id_table[grepl("^AT.+", id_table$TAIR), ]
+
 mrna <- data.frame(Gene = mrna$Gene,# TAIR = mrna$TAIR,
                   PP = mrna$Protoplasts_FPKM,
                   PN = mrna$Protonema_FPKM,
                   stringsAsFactors = FALSE)
 
 mrna <- mrna[grepl("^Pp.+", mrna$Gene),]
-mrna$mrnaPNtoPP <- mrna$PN/mrna$PP
+mrna$mrnaPPtoPN <- mrna$PP/mrna$PN
 mrna <- na.omit(mrna)  # Fix it
 
 if (SWATH_SOURCE == "processed")
 {
     prot <- read.table("proteins.csv", sep = '\t', header = TRUE, stringsAsFactors = FALSE)
-    prot <- data.frame(Gene = prot$ProteinName, protPNtoPP = prot$PNtoPP_1.fc, 
+    prot <- data.frame(Gene = prot$ProteinName, protPPtoPN = 1/prot$PNtoPP_1.fc, 
                        stringsAsFactors = FALSE)
 } else if (SWATH_SOURCE == "raw")
 {
@@ -75,7 +79,7 @@ if (SWATH_SOURCE == "processed")
     prot$protein_id <- NULL
     prot$PN <- apply(prot[,PN_SAMPLES], 1, FUN = mean)
     prot$PP <- apply(prot[,PP_SAMPLES], 1, FUN = mean)
-    prot$protPNtoPP <- prot$PN/prot$PP
+    prot$protPPtoPN <- prot$PP/prot$PN
     prot$pv <- apply(prot, 1, tst, PN_SAMPLES, PP_SAMPLES)
     if (PROT_FILTER_PV)
     {
@@ -90,14 +94,21 @@ prot <- prot[grepl("^Pp.+", prot$Gene),]
 prot$Gene <- sapply(strsplit(prot$Gene, split = '\\.'), "[", 1)
 prot <- aggregate(. ~ Gene, data = prot, FUN = sum)
 
-total <- merge(mrna[,c("Gene", "mrnaPNtoPP")], 
-               prot[, c("Gene", "protPNtoPP")], by = "Gene" )#, all.y = TRUE)
+total <- merge(mrna[,c("Gene", "mrnaPPtoPN")], 
+               prot[, c("Gene", "protPPtoPN")], by = "Gene" )#, all.y = TRUE)
 
-total$mrnafc <- log(total$mrnaPNtoPP, base = 1.5)
-total$protfc <- log(total$protPNtoPP, base = 1.5)
+total$mrnafc <- log(total$mrnaPPtoPN, base = 1.5)
+total$protfc <- log(total$protPPtoPN, base = 1.5)
 
 total$group <- as.factor(apply(total[,c("mrnafc", "protfc")], 1,
                                function(x) group(x[1], x[2])))
+
+total <- merge(total, id_table, by = "Gene", all.x = TRUE)
+dir.create("groups", showWarnings = FALSE)
+for (g in levels(total$group))
+{
+    write(total[total$group==g, "TAIR"], file = paste0("groups/", g, ".txt"))
+}
 
 total <- total[ abs(total$mrnafc) > TH |
                 abs(total$protfc) > TH,]
