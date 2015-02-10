@@ -121,4 +121,22 @@ print(p)
 
 #backgrpond
 
+#IDA
+ida <- read.table("ida_by_spectra.csv", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+ida$Gene <- sapply(strsplit(ida$Gene, split = '\\.'), "[", 1)
+ida <- aggregate(. ~ Gene, data = ida, FUN = sum)
+ida$idaPPtoPN <- ida$PP/ida$PN
 
+# Pathways
+url <- "http://pmn.plantcyc.org/PLANT/pathway-genes?object=GLYCOLYSIS&ENZORG=TAX-3218"
+fl <- file(url, open = "r")
+path_name <- readLines(fl, n=1)
+enz <- read.table(fl, skip = 1, , sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+rm(fl)
+enz <- enz[enz$Organism == "Physcomitrella patens", c("Gene.name")]
+enz <- unique(sapply(strsplit(enz, split = '\\.'), "[", 1))
+
+pathway <- merge(ida[,c("Gene", 'idaPPtoPN')], 
+                 prot[,c("Gene", "protPPtoPN")],
+                 by = "Gene", all = TRUE)
+pathway = merge(pathway, data.frame(Gene = enz, stringsAsFactors = FALSE), all.x = TRUE)
