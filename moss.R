@@ -133,10 +133,19 @@ fl <- file(url, open = "r")
 path_name <- readLines(fl, n=1)
 enz <- read.table(fl, skip = 1, , sep = "\t", header = TRUE, stringsAsFactors = FALSE)
 rm(fl)
-enz <- enz[enz$Organism == "Physcomitrella patens", c("Gene.name")]
-enz <- unique(sapply(strsplit(enz, split = '\\.'), "[", 1))
+enz <- enz[enz$Organism == "Physcomitrella patens", 
+           c("Gene.name", "Enzymatic.activity", "Reaction.EC")]
+enz <- data.frame(Gene = enz$Gene.name,
+                  Reaction = enz$Enzymatic.activity,
+                  EC = enz$Reaction.EC,
+                  stringsAsFactors = FALSE)
+enz$Gene <- sapply(strsplit(enz$Gene, split = '\\.'), "[", 1)
+enz <- unique(enz)
 
 pathway <- merge(ida[,c("Gene", 'idaPPtoPN')], 
                  prot[,c("Gene", "protPPtoPN")],
                  by = "Gene", all = TRUE)
-pathway = merge(pathway, data.frame(Gene = enz, stringsAsFactors = FALSE), all.x = TRUE)
+pathway <- merge(pathway, enz, by = "Gene", all.y = TRUE)
+pathway <- pathway[(!is.na(pathway$idaPPtoPN)) | (!is.na(pathway$protPPtoPN)),]
+pathway <- pathway[order(pathway$EC),]
+write.table(pathway, "pathways/glycolysis.txt", sep = "\t")
