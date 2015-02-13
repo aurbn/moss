@@ -155,6 +155,12 @@ for (g in levels(total$group))
 #                abs(total$protfc) > TH,]
 
 #plot(total$mrnafc, total$protfc, pch = 19, col = total$group)
+p <- ggplot(total, aes(x=protfc, y=mrnafc, colour = group))
+p <- p + geom_point(size  = 3)
+ggsave("groups.png", p)
+print(p)
+
+
 tmp <- total[, c("Gene","mrnafc", "protfc", "group")]
 tmp <- na.omit(tmp)
 tmpm <- lm(mrnafc ~ protfc, data = tmp)
