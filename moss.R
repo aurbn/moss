@@ -67,6 +67,8 @@ else
 }
 }
 
+dir.create("plots", showWarnings = FALSE)
+
 mrna <- read.table("transcripts.csv", sep = '\t', header = TRUE, stringsAsFactors = FALSE)
 
 id_table <- data.frame(Gene = mrna$Gene, TAIR = mrna$TAIR, stringsAsFactors = FALSE)
@@ -121,7 +123,7 @@ total$group <- as.factor(apply(total[,c("mrnafc", "protfc", "protpv")], 1,
 total <- merge(total, id_table, by = "Gene", all.x = TRUE)
 
 ##### FUNCTIONAL ANNOTATION #####
-bk_genes <- scan("groups/backgreound.txt", what = character())
+bk_genes <- scan("background.txt", what = character())
 
 if (ANN_METHOD == "david")
 {
@@ -157,7 +159,7 @@ for (g in levels(total$group))
 #plot(total$mrnafc, total$protfc, pch = 19, col = total$group)
 p <- ggplot(total, aes(x=protfc, y=mrnafc, colour = group))
 p <- p + geom_point(size  = 3)
-ggsave("groups.png", p)
+ggsave("plots/groups.png", p)
 print(p)
 
 
@@ -165,7 +167,7 @@ tmp <- total[, c("Gene","mrnafc", "protfc", "group")]
 tmp <- na.omit(tmp)
 tmpm <- lm(mrnafc ~ protfc, data = tmp)
 p <- ggplotRegression(tmpm)
-ggsave("mrna_prot.png", p)
+ggsave("plots/mrna_prot.png", p)
 print(p)
 
 #backgrpond
@@ -182,7 +184,7 @@ tmp <- merge(tmp, ida[, c("Gene", "idafc")], by = "Gene")
 tmp <- na.omit(tmp)
 tmpm <- lm(idafc ~ protfc, data = tmp)
 p <- ggplotRegression(tmpm)
-ggsave("ida_prot.png", p)
+ggsave("plots/ida_prot.png", p)
 print(p)
 
 # Pathways
