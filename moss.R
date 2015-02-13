@@ -1,15 +1,29 @@
 require(ggplot2)
 ####### Parameters #######
-FC2_TH = 1
-FC15_TH = 1
-TH = FC15_TH
-SWATH_SOURCE = "raw"   # "raw" or "processed"
-PN_SAMPLES = c("F163", "F164", "F165")
-PP_SAMPLES = c("F166", "F167", "F168", "F169")
-PROT_FILTER_PV = FALSE
-PROT_REQ_PV = 2
+FC2_TH <- 1
+FC15_TH <- 1
+TH <- FC15_TH
+SWATH_SOURCE <- "processed"   # "raw" or "processed"
+PN_SAMPLES <- c("F163", "F164", "F165")
+PP_SAMPLES <- c("F166", "F167", "F168", "F169")
+PROT_FILTER_PV <- FALSE
+PROT_REQ_PV <- 2
+
+##### ANNOTATION PARAMETERS #####
+ANN_METHOD <- "david"  # "david"
+DAVID_REQ_PV <- 0.05
 
 ##########################
+
+ggplotRegression <- function (fit) {
+    ggplot(fit$model, aes_string(x = names(fit$model)[2], y = names(fit$model)[1])) + 
+        geom_point() +
+        stat_smooth(method = "lm", col = "red") +
+        ggtitle(paste("Adj R2 = ",signif(summary(fit)$adj.r.squared, 2),
+                           "; Intercept =",signif(fit$coef[[1]],2 ),
+                           ";\n Slope =",signif(fit$coef[[2]], 2),
+                           "; P =",signif(summary(fit)$coef[2,4], 2)))
+}
 
 group <- function(mrna, prot, pvmrna, protpv)
 {
@@ -66,6 +80,8 @@ mrna <- data.frame(Gene = mrna$Gene,# TAIR = mrna$TAIR,
 mrna <- mrna[grepl("^Pp.+", mrna$Gene),]
 mrna$mrnaPPtoPN <- mrna$PP/mrna$PN
 mrna <- na.omit(mrna)  # Fix it
+mrna$mrnafc <- log(mrna$mrnaPPtoPN, base = 1.5)
+
 
 if (SWATH_SOURCE == "processed")
 {
@@ -94,29 +110,56 @@ if (SWATH_SOURCE == "processed")
 prot <- prot[grepl("^Pp.+", prot$Gene),]
 prot$Gene <- sapply(strsplit(prot$Gene, split = '\\.'), "[", 1)
 prot <- aggregate(. ~ Gene, data = prot, FUN = sum)
+prot$protfc <- log(prot$protPPtoPN, base = 1.5)
 
-total <- merge(mrna[,c("Gene", "mrnaPPtoPN")], 
-               prot[, c("Gene", "protPPtoPN", "protpv")], by = "Gene" )#, all.y = TRUE)
-
-total$mrnafc <- log(total$mrnaPPtoPN, base = 1.5)
-total$protfc <- log(total$protPPtoPN, base = 1.5)
+total <- merge(mrna[,c("Gene", "mrnaPPtoPN", "mrnafc")], 
+               prot[, c("Gene", "protPPtoPN", "protfc","protpv")], by = "Gene" )#, all.y = TRUE)
 
 total$group <- as.factor(apply(total[,c("mrnafc", "protfc", "protpv")], 1,
                                function(x) group(x[1], x[2], 0, x[3])))
 
 total <- merge(total, id_table, by = "Gene", all.x = TRUE)
+
+##### FUNCTIONAL ANNOTATION #####
+bk_genes <- scan("groups/backgreound.txt", what = character())
+
+if (ANN_METHOD == "david")
+{
+    library("RDAVIDWebService")
+    david <- DAVIDWebService$new(email='anatoly.urban@phystech.edu')
+    BG <- addList(david, bk_genes, idType="TAIR_ID", listName="bkgrd", listType="Background")
+    setAnnotationCategories(david, c("GOTERM_BP_ALL", "GOTERM_MF_ALL"))
+}
+
 dir.create("groups", showWarnings = FALSE)
 for (g in levels(total$group))
 {
-    write(total[total$group==g, "TAIR"], file = paste0("groups/", g, ".txt"))
+    print(paste0("Annotating ", g))
+    
+    list_go = total[total$group==g, "TAIR"]
+    write(list_go, file = paste0("groups/", g, ".txt"))
+    
+    if (ANN_METHOD == "david")
+    {
+        FG <- addList(david, list_go, idType="TAIR_ID", listName="isClass", listType="Gene")
+        ann <- getFunctionalAnnotationChart(david)
+        ann <- ann[ann$PValue < DAVID_REQ_PV,]
+        ann <- ann[order(ann$PValue), ]
+        write(ann[,c("Category", "Term", "Count", "PValue")],
+              file = paste0("groups/", g, ".david.txt"))
+    }    
 }
 
+######################################
 #total <- total[ abs(total$mrnafc) > TH |
 #                abs(total$protfc) > TH,]
 
 #plot(total$mrnafc, total$protfc, pch = 19, col = total$group)
-p <- ggplot(total, aes(x=protfc, y=mrnafc, colour = group))
-p <- p + geom_point(size  = 3)
+tmp <- total[, c("Gene","mrnafc", "protfc", "group")]
+tmp <- na.omit(tmp)
+tmpm <- lm(mrnafc ~ protfc, data = tmp)
+p <- ggplotRegression(tmpm)
+ggsave("mrna_prot.png", p)
 print(p)
 
 #backgrpond
@@ -126,6 +169,15 @@ ida <- read.table("ida_by_spectra.csv", sep = "\t", header = TRUE, stringsAsFact
 ida$Gene <- sapply(strsplit(ida$Gene, split = '\\.'), "[", 1)
 ida <- aggregate(. ~ Gene, data = ida, FUN = sum)
 ida$idaPPtoPN <- ida$PP/ida$PN
+ida$idafc <- log(ida$idaPPtoPN, base = 1.5)
+
+tmp <- prot[, c("Gene", "protfc")]
+tmp <- merge(tmp, ida[, c("Gene", "idafc")], by = "Gene")
+tmp <- na.omit(tmp)
+tmpm <- lm(idafc ~ protfc, data = tmp)
+p <- ggplotRegression(tmpm)
+ggsave("ida_prot.png", p)
+print(p)
 
 # Pathways
 url <- "http://pmn.plantcyc.org/PLANT/pathway-genes?object=GLYCOLYSIS&ENZORG=TAX-3218"
