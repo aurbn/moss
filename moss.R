@@ -143,12 +143,22 @@ for (g in levels(total$group))
     
     if (ANN_METHOD == "david")
     {
-        FG <- addList(david, list_go, idType="TAIR_ID", listName="isClass", listType="Gene")
-        ann <- getFunctionalAnnotationChart(david)
-        ann <- ann[ann$PValue < DAVID_REQ_PV,]
-        ann <- ann[order(ann$PValue), ]
-        write(ann[,c("Category", "Term", "Count", "PValue")],
-              file = paste0("groups/", g, ".david.txt"))
+        FG <- addList(david, list_go, idType="TAIR_ID", listName=g, listType="Gene")
+        setCurrentBackgroundPosition(david,
+            grep("bkgrd", getBackgroundListNames(david)))
+        setCurrentGeneListPosition(david,
+                                     grep(g, getGeneListNames(david)))
+        ann <- getFunctionalAnnotationChart(david, threshold=DAVID_REQ_PV)
+        #ann <- ann[ann$PValue < DAVID_REQ_PV,]
+        if (nrow(ann) > 0)
+        {
+            ann <- ann[order(ann$PValue), ]
+            write.table(ann[,c("Category", "Term", "Count", "PValue")],
+                file = paste0("groups/", g, ".david.txt"), quote = FALSE, sep = '\t')
+        }else
+        {
+            write("No significant results!", file = paste0("groups/", g, ".david.txt"))
+        }
     }    
 }
 
