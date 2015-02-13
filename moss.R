@@ -169,6 +169,8 @@ for (g in levels(total$group))
 #plot(total$mrnafc, total$protfc, pch = 19, col = total$group)
 p <- ggplot(total, aes(x=protfc, y=mrnafc, colour = group))
 p <- p + geom_point(size  = 3)
+p <- p + geom_hline()
+p <- p + geom_vline()
 ggsave("plots/groups.png", p)
 print(p)
 
