@@ -4,14 +4,19 @@ FC2_TH <- 1
 FC15_TH <- 1
 TH <- FC15_TH
 SWATH_SOURCE <- "processed"   # "raw" or "processed"
+IDA_SOURCE <- "empai" # "empai" or "count"
 PN_SAMPLES <- c("F163", "F164", "F165")
 PP_SAMPLES <- c("F166", "F167", "F168", "F169")
 PROT_FILTER_PV <- FALSE
 PROT_REQ_PV <- 2
+EMPAI_PV_REQ <- 0.05
 
 ##### ANNOTATION PARAMETERS #####
 ANN_METHOD <- "david"  # "david"
 DAVID_REQ_PV <- 0.05
+KEGG_SP <- "ppp"
+PATHWAYS <- c("00010", "00020", "00030", "00040", "00190", "00195" )
+#http://www.kegg.jp/kegg-bin/search_pathway_text?map=ppp&keyword=&mode=1&viewImage=true
 
 ##########################
 
@@ -185,11 +190,24 @@ print(p)
 #backgrpond
 
 #IDA
+
 ida <- read.table("ida_by_spectra.csv", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
 ida$Gene <- sapply(strsplit(ida$Gene, split = '\\.'), "[", 1)
 ida <- aggregate(. ~ Gene, data = ida, FUN = sum)
 ida$idaPPtoPN <- ida$PP/ida$PN
 ida$idafc <- log(ida$idaPPtoPN, base = 1.5)
+
+empai <- read.table("emPAI.csv", sep = '\t', header = TRUE, stringsAsFactors = FALSE)
+empai$Gene <- sapply(strsplit(empai$Gene, split = '\\.'), "[", 1)
+empai <- aggregate(. ~ Gene, data = empai, FUN = sum)
+empai$PN <- apply(empai[,PN_SAMPLES], 1, FUN = mean)
+empai$PP <- apply(empai[,PP_SAMPLES], 1, FUN = mean)
+empai$empaiPPtoPN <- empai$PP/empai$PN
+empai$empaifc <- log(empai$empaiPPtoPN, base = 1.5)
+empai$empaipv <- apply(empai, 1, tst, PN_SAMPLES, PP_SAMPLES)
+empsi_all <- empai
+empai <- empai[empai$empaipv < EMPAI_PV_REQ, ]   # CHECK IT !!!!
+
 
 tmp <- prot[, c("Gene", "protfc")]
 tmp <- merge(tmp, ida[, c("Gene", "idafc")], by = "Gene")
@@ -199,25 +217,66 @@ p <- ggplotRegression(tmpm)
 ggsave("plots/ida_prot.png", p)
 print(p)
 
-# Pathways
-url <- "http://pmn.plantcyc.org/PLANT/pathway-genes?object=GLYCOLYSIS&ENZORG=TAX-3218"
-fl <- file(url, open = "r")
-path_name <- readLines(fl, n=1)
-enz <- read.table(fl, skip = 1, , sep = "\t", header = TRUE, stringsAsFactors = FALSE)
-rm(fl)
-enz <- enz[enz$Organism == "Physcomitrella patens", 
-           c("Gene.name", "Enzymatic.activity", "Reaction.EC")]
-enz <- data.frame(Gene = enz$Gene.name,
-                  Reaction = enz$Enzymatic.activity,
-                  EC = enz$Reaction.EC,
-                  stringsAsFactors = FALSE)
-enz$Gene <- sapply(strsplit(enz$Gene, split = '\\.'), "[", 1)
-enz <- unique(enz)
+tmp <- prot[, c("Gene", "protfc")]
+tmp <- merge(tmp, empai_all[, c("Gene", "empaifc")], by = "Gene")
+tmp <- na.omit(tmp)
+tmp <- tmp[is.finite(tmp$empaifc) & is.finite(tmp$protfc),]
+tmpm <- lm(empaifc ~ protfc, data = tmp)
+p <- ggplotRegression(tmpm)
+ggsave("plots/empai_prot.png", p)
+print(p)
 
-pathway <- merge(ida[,c("Gene", 'idaPPtoPN')], 
-                 prot[,c("Gene", "protPPtoPN")],
-                 by = "Gene", all = TRUE)
-pathway <- merge(pathway, enz, by = "Gene", all.y = TRUE)
-pathway <- pathway[(!is.na(pathway$idaPPtoPN)) | (!is.na(pathway$protPPtoPN)),]
-pathway <- pathway[order(pathway$EC),]
-write.table(pathway, "pathways/glycolysis.txt", sep = "\t")
+# Pathways
+#url <- "http://pmn.plantcyc.org/PLANT/pathway-genes?object=GLYCOLYSIS&ENZORG=TAX-3218"
+#fl <- file(url, open = "r")
+#path_name <- readLines(fl, n=1)
+#enz <- read.table(fl, skip = 1, , sep = "\t", header = TRUE, stringsAsFactors = FALSE)
+#rm(fl)
+### convert PP to PHYPADRAFT
+pp2phypa <- read.table("cosmoss2phypa.csv", sep = '\t', header = TRUE, stringsAsFactors = FALSE)
+pp2phypa$Gene <- sapply(strsplit(pp2phypa$Gene, split = '\\.'), "[", 1)
+
+data <- merge(empai[, c("Gene", "empaifc")], prot[,c("Gene", "protfc")], by ="Gene", all.x = TRUE)
+data <- merge(data, pp2phypa, by = "Gene" )#, all.x = TRUE)
+tmp <- !is.finite(data$protfc)
+data[tmp, "protfc"] <- data[tmp, "empaifc"]
+data$empaifc <- NULL
+data$ida <- tmp
+data$fc <- data$protfc
+data$protfc <- NULL
+data <- data[is.finite(data$fc),]
+#require(KEGG.db)
+
+library(pathview)
+
+d <- data$fc
+names(d) <- data$pd_id
+
+dir.create("pathways", showWarnings = FALSE)
+for (p in PATHWAYS)
+{
+    pv.out <- pathview(gene.data = d, pathway.id = p, gene.idtype = "KEGG",
+                       kegg.dir = "pathways", species = KEGG_SP, out.suffix = "kegg")
+    fname = paste0(KEGG_SP, p, ".kegg.png" )
+    file.rename(from = fname, to = paste0("pathways/", fname))
+}
+
+
+
+# 
+# enz <- enz[enz$Organism == "Physcomitrella patens", 
+#            c("Gene.name", "Enzymatic.activity", "Reaction.EC")]
+# enz <- data.frame(Gene = enz$Gene.name,
+#                   Reaction = enz$Enzymatic.activity,
+#                   EC = enz$Reaction.EC,
+#                   stringsAsFactors = FALSE)
+# enz$Gene <- sapply(strsplit(enz$Gene, split = '\\.'), "[", 1)
+# enz <- unique(enz)
+# 
+# pathway <- merge(ida[,c("Gene", 'idaPPtoPN')], 
+#                  prot[,c("Gene", "protPPtoPN")],
+#                  by = "Gene", all = TRUE)
+# pathway <- merge(pathway, enz, by = "Gene", all.y = TRUE)
+# pathway <- pathway[(!is.na(pathway$idaPPtoPN)) | (!is.na(pathway$protPPtoPN)),]
+# pathway <- pathway[order(pathway$EC),]
+# write.table(pathway, "pathways/glycolysis.txt", sep = "\t")
