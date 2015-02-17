@@ -205,7 +205,7 @@ empai$PP <- apply(empai[,PP_SAMPLES], 1, FUN = mean)
 empai$empaiPPtoPN <- empai$PP/empai$PN
 empai$empaifc <- log(empai$empaiPPtoPN, base = 1.5)
 empai$empaipv <- apply(empai, 1, tst, PN_SAMPLES, PP_SAMPLES)
-empsi_all <- empai
+empai_all <- empai
 empai <- empai[empai$empaipv < EMPAI_PV_REQ, ]   # CHECK IT !!!!
 
 
