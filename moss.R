@@ -253,13 +253,15 @@ d <- data$fc
 names(d) <- data$pd_id
 
 dir.create("pathways", showWarnings = FALSE)
+dir.create("pathways_tmp", showWarnings = FALSE)
 for (p in PATHWAYS)
 {
     pv.out <- pathview(gene.data = d, pathway.id = p, gene.idtype = "KEGG",
-                       kegg.dir = "pathways", species = KEGG_SP, out.suffix = "kegg")
+                       kegg.dir = "pathways_tmp", species = KEGG_SP, out.suffix = "kegg")
     fname = paste0(KEGG_SP, p, ".kegg.png" )
     file.rename(from = fname, to = paste0("pathways/", fname))
 }
+unlink("pathways_tmp", recursive = TRUE)
 
 
 
