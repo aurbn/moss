@@ -15,10 +15,12 @@ EMPAI_PV_REQ <- 0.05
 ANN_METHOD <- "david"  # "david"
 DAVID_REQ_PV <- 0.05
 KEGG_SP <- "ppp"
-PATHWAYS <- c("00010", "00020", "00030", "00040", "00190", "00195" )
+PATHWAYS <- c("00010", "00020", "00030", "00040", "00190", "00195", "00196")
+ALL_PATHWAYS <- scan("all_kegg.txt", what = character())
+PATHWAYS <- ALL_PATHWAYS
 #http://www.kegg.jp/kegg-bin/search_pathway_text?map=ppp&keyword=&mode=1&viewImage=true
 
-USE_PV_EMPAI <- FALSE
+#USE_PV_EMPAI <- FALSE
 ##########################
 
 ggplotRegression <- function (fit) {
@@ -261,6 +263,7 @@ library(pathview)
 
 d <- data$fc
 names(d) <- data$pd_id
+catched <- c()
 
 dir.create("pathways", showWarnings = FALSE)
 dir.create("pathways_tmp", showWarnings = FALSE)
@@ -268,9 +271,16 @@ for (p in PATHWAYS)
 {
     pv.out <- pathview(gene.data = d, pathway.id = p, gene.idtype = "KEGG",
                        kegg.dir = "pathways_tmp", species = KEGG_SP, out.suffix = "kegg")
+    if(length(pv.out) != 2)
+        next
     fname = paste0(KEGG_SP, p, ".kegg.png" )
+    ok_ <- !is.na(pv.out$plot.data.gene$mol.data)
+    catched <- c(catched, pv.out$plot.data.gene[ok_,]$kegg.names)
+    rm(ok_)
     file.rename(from = fname, to = paste0("pathways/", fname))
 }
+data$catched <- data$pd_id %in% catched
+print(paste(as.character(sum(data$catched)), "proteins in pathways"))
 unlink("pathways_tmp", recursive = TRUE)
 
 
