@@ -18,6 +18,7 @@ KEGG_SP <- "ppp"
 PATHWAYS <- c("00010", "00020", "00030", "00040", "00190", "00195" )
 #http://www.kegg.jp/kegg-bin/search_pathway_text?map=ppp&keyword=&mode=1&viewImage=true
 
+USE_PV_EMPAI <- FALSE
 ##########################
 
 ggplotRegression <- function (fit) {
@@ -236,12 +237,21 @@ print(p)
 pp2phypa <- read.table("cosmoss2phypa.csv", sep = '\t', header = TRUE, stringsAsFactors = FALSE)
 pp2phypa$Gene <- sapply(strsplit(pp2phypa$Gene, split = '\\.'), "[", 1)
 
-data <- merge(empai[, c("Gene", "empaifc")], prot[,c("Gene", "protfc")], by ="Gene", all.x = TRUE)
+if(USE_PV_EMPAI)
+{
+    data <- merge(empai[, c("Gene", "empaifc")], prot[,c("Gene", "protfc")],
+                  by ="Gene", all = TRUE)
+}else
+{
+    data <- merge(empai_all[, c("Gene", "empaifc")], prot[,c("Gene", "protfc")],
+                  by ="Gene", all = TRUE)
+}
+
 data <- merge(data, pp2phypa, by = "Gene" )#, all.x = TRUE)
-tmp <- !is.finite(data$protfc)
-data[tmp, "protfc"] <- data[tmp, "empaifc"]
+tmp <- is.finite(data$protfc)
+data[!tmp, "protfc"] <- data[!tmp, "empaifc"]
 data$empaifc <- NULL
-data$ida <- tmp
+data$ida <- !tmp
 data$fc <- data$protfc
 data$protfc <- NULL
 data <- data[is.finite(data$fc),]
