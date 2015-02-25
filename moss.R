@@ -157,6 +157,24 @@ for (g in levels(total$group))
         setCurrentGeneListPosition(david,
                                      grep(g, getGeneListNames(david)))
         ann <- getFunctionalAnnotationChart(david, threshold=DAVID_REQ_PV)
+        
+        setCurrentBackgroundPosition(david,
+                                     grep("bkgrd", getBackgroundListNames(david)))
+        setCurrentGeneListPosition(david,
+                                   grep(g, getGeneListNames(david)))
+        clann <- getClusterReport(david, type = "Term" )#, threshold=DAVID_REQ_PV)
+        
+        for (cl in clann@cluster)
+        {
+            fname <-  paste0("groups/", g, ".clusters.david.txt")
+            write(paste("Enrichment",cl[[1]]), file = fname, append = TRUE)
+            suppressWarnings(
+                write.table(cl[[2]][,c("Category", "Term", "Count",
+                                   "PValue", "Bonferroni", "Benjamini", "FDR")],
+                        file = fname, append = TRUE))
+            write("\n", file = fname, append = TRUE)
+         }
+        
         #ann <- ann[ann$PValue < DAVID_REQ_PV,]
         if (nrow(ann) > 0)
         {
@@ -277,7 +295,7 @@ for (p in PATHWAYS)
     ok_ <- !is.na(pv.out$plot.data.gene$mol.data)
     catched <- c(catched, pv.out$plot.data.gene[ok_,]$kegg.names)
     rm(ok_)
-    file.rename(from = fname, to = paste0("pathways/", fname))
+    file.rename(from = fname, to = paste0("pathways/", sprintf("%02i_", ok_), fname))
 }
 data$catched <- data$pd_id %in% catched
 print(paste(as.character(sum(data$catched)), "proteins in pathways"))
