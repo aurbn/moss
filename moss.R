@@ -295,8 +295,8 @@ for (p in PATHWAYS)
     fname = paste0(KEGG_SP, p, ".kegg.png" )
     ok_ <- !is.na(pv.out$plot.data.gene$mol.data)
     catched <- c(catched, pv.out$plot.data.gene[ok_,]$kegg.names)
-    rm(ok_)
     file.rename(from = fname, to = paste0("pathways/", sprintf("%02i_", ok_), fname))
+    rm(ok_)
 }
 data$catched <- data$pd_id %in% catched
 print(paste(as.character(sum(data$catched)), "proteins in pathways"))
