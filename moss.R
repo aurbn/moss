@@ -169,10 +169,18 @@ for (g in levels(total$group))
         {
             fname <-  paste0("groups/", g, ".clusters.david.txt")
             write(paste("Enrichment",cl[[1]]), file = fname, append = TRUE)
-            suppressWarnings(
-                write.table(cl[[2]][,c("Category", "Term", "Count",
-                                   "PValue", "Bonferroni", "Benjamini", "FDR")],
-                        file = fname, append = TRUE))
+            cltab <- cl[[2]][,c("Category", "Term", "Count",
+                                "PValue", "Bonferroni", "Benjamini", "FDR")]
+            cltab <- cltab[cltab$PValut < DAVID_REQ_PV,]
+            if (nrow(cltab) > 0)
+            {
+                suppressWarnings(
+                    write.table(cltab, file = fname, append = TRUE)
+                    )
+            } else
+            {
+                write("No significant results!", file = fname, append = TRUE)
+            }
             write("\n", file = fname, append = TRUE)
          }
         
