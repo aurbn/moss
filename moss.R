@@ -18,6 +18,7 @@ KEGG_SP <- "ppp"
 PATHWAYS <- c("00010", "00020", "00030", "00040", "00190", "00195", "00196")
 ALL_PATHWAYS <- scan("all_kegg.txt", what = character())
 PATHWAYS <- ALL_PATHWAYS
+USE_PV_EMPAI <- FALSE
 #http://www.kegg.jp/kegg-bin/search_pathway_text?map=ppp&keyword=&mode=1&viewImage=true
 
 #USE_PV_EMPAI <- FALSE
