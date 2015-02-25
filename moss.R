@@ -8,7 +8,7 @@ IDA_SOURCE <- "empai" # "empai" or "count"
 PN_SAMPLES <- c("F163", "F164", "F165")
 PP_SAMPLES <- c("F166", "F167", "F168", "F169")
 PROT_FILTER_PV <- FALSE
-PROT_REQ_PV <- 2
+PROT_REQ_PV <- 0.05
 EMPAI_PV_REQ <- 0.05
 
 ##### ANNOTATION PARAMETERS #####
@@ -171,7 +171,7 @@ for (g in levels(total$group))
             write(paste("Enrichment",cl[[1]]), file = fname, append = TRUE)
             cltab <- cl[[2]][,c("Category", "Term", "Count",
                                 "PValue", "Bonferroni", "Benjamini", "FDR")]
-            cltab <- cltab[cltab$PValut < DAVID_REQ_PV,]
+            cltab <- cltab[cltab$PValue < DAVID_REQ_PV,]
             if (nrow(cltab) > 0)
             {
                 suppressWarnings(
@@ -303,7 +303,7 @@ for (p in PATHWAYS)
     fname = paste0(KEGG_SP, p, ".kegg.png" )
     ok_ <- !is.na(pv.out$plot.data.gene$mol.data)
     catched <- c(catched, pv.out$plot.data.gene[ok_,]$kegg.names)
-    file.rename(from = fname, to = paste0("pathways/", sprintf("%02i_", ok_), fname))
+    file.rename(from = fname, to = paste0("pathways/", sprintf("%02i_", sum(ok_)), fname))
     rm(ok_)
 }
 data$catched <- data$pd_id %in% catched
