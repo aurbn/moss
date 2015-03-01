@@ -1,4 +1,5 @@
 require(ggplot2)
+require(KEGGREST)
 ####### Parameters #######
 FC2_TH <- 1
 FC15_TH <- 1
@@ -13,6 +14,7 @@ EMPAI_PV_REQ <- 0.05
 
 ##### ANNOTATION PARAMETERS #####
 ANN_METHOD <- "david"  # "david"
+USE_PV_EMPAI <- FALSE
 DAVID_REQ_PV <- 0.05
 KEGG_SP <- "ppp"
 PATHWAYS <- c("00010", "00020", "00030", "00040", "00190", "00195", "00196")
@@ -76,6 +78,24 @@ else
 }
 }
 
+
+kegg_get <- function(id, key)
+{
+    inf <- function(i)
+    {
+        kg <- keggGet(paste0(key, ":", i))
+        ort <- kg[[1]]$ORTHOLOGY
+        def <- kg[[1]]$DEFINITION
+        c(ID = i, ORT = ifelse(is.null(ort), "NA", ort),
+                  DEF =  ifelse(is.null(def), "NA", def))
+    }
+    
+    t <- lapply(id, inf)
+    t <- data.frame(matrix(unlist(t), nrow=length(t), byrow=T))
+    names(t) <- c("ID", "Orthology", "Definition")
+    t
+}
+
 dir.create("plots", showWarnings = FALSE)
 
 mrna <- read.table("transcripts.csv", sep = '\t', header = TRUE, stringsAsFactors = FALSE)
@@ -89,6 +109,8 @@ mrna <- data.frame(Gene = mrna$Gene,# TAIR = mrna$TAIR,
                   stringsAsFactors = FALSE)
 
 mrna <- mrna[grepl("^Pp.+", mrna$Gene),]
+mrna <- aggregate(. ~ Gene, data = mrna, FUN = sum)
+
 mrna$mrnaPPtoPN <- mrna$PP/mrna$PN
 mrna <- na.omit(mrna)  # Fix it
 mrna$mrnafc <- log(mrna$mrnaPPtoPN, base = 1.5)
@@ -125,6 +147,7 @@ prot$protfc <- log(prot$protPPtoPN, base = 1.5)
 
 total <- merge(mrna[,c("Gene", "mrnaPPtoPN", "mrnafc")], 
                prot[, c("Gene", "protPPtoPN", "protfc","protpv")], by = "Gene" )#, all.y = TRUE)
+total <- unique(total)
 
 total$group <- as.factor(apply(total[,c("mrnafc", "protfc", "protpv")], 1,
                                function(x) group(x[1], x[2], 0, x[3])))
@@ -147,8 +170,15 @@ for (g in levels(total$group))
 {
     print(paste0("Annotating ", g))
     
-    list_go = total[total$group==g, "TAIR"]
-    write(list_go, file = paste0("groups/", g, ".txt"))
+    list_go <- total[total$group==g, "TAIR"]
+    n_k <- length((list_go))
+    t_ <- kegg_get(list_go, "ath")
+    names(t_)[1] <- "TAIR"
+    t_ <- merge(t_, total[,c("TAIR", "mrnafc", "protfc")], by = "TAIR")
+    t_ <- t_[,c("TAIR", "mrnafc", "protfc", "Orthology", "Definition")]
+    write.table(t_, sep = "\t", quote = FALSE, row.names = FALSE,
+                file = paste0("groups/", g, sprintf("_%02i", n_k),  ".txt"))
+    rm(t_)
     
     if (ANN_METHOD == "david")
     {
@@ -239,13 +269,15 @@ empai_all <- empai
 empai <- empai[empai$empaipv < EMPAI_PV_REQ, ]   # CHECK IT !!!!
 
 
-tmp <- prot[, c("Gene", "protfc")]
-tmp <- merge(tmp, ida[, c("Gene", "idafc")], by = "Gene")
+tmp <- mrna[, c("Gene", "mrnafc")]
+tmp <- merge(tmp, empai_all[, c("Gene", "empaifc")], by = "Gene")
 tmp <- na.omit(tmp)
-tmpm <- lm(idafc ~ protfc, data = tmp)
+tmp <- tmp[is.finite(tmp$empaifc),]
+tmpm <- lm(mrnafc ~ empaifc, data = tmp)
 p <- ggplotRegression(tmpm)
-ggsave("plots/ida_prot.png", p)
+ggsave("plots/mrna_empai.png", p)
 print(p)
+
 
 tmp <- prot[, c("Gene", "protfc")]
 tmp <- merge(tmp, empai_all[, c("Gene", "empaifc")], by = "Gene")
@@ -256,6 +288,15 @@ p <- ggplotRegression(tmpm)
 ggsave("plots/empai_prot.png", p)
 print(p)
 
+
+tmp <- prot[, c("Gene", "protfc")]
+tmp <- merge(tmp, empai_all[, c("Gene", "empaifc")], by = "Gene")
+tmp <- na.omit(tmp)
+tmp <- tmp[is.finite(tmp$empaifc) & is.finite(tmp$protfc),]
+tmpm <- lm(empaifc ~ protfc, data = tmp)
+p <- ggplotRegression(tmpm)
+ggsave("plots/empai_prot.png", p)
+print(p)
 # Pathways
 #url <- "http://pmn.plantcyc.org/PLANT/pathway-genes?object=GLYCOLYSIS&ENZORG=TAX-3218"
 #fl <- file(url, open = "r")
@@ -284,6 +325,7 @@ data$ida <- !tmp
 data$fc <- data$protfc
 data$protfc <- NULL
 data <- data[is.finite(data$fc),]
+data$Source <- ifelse(data$ida, "emPAI", "SWATH")
 #require(KEGG.db)
 
 library(pathview)
@@ -300,10 +342,29 @@ for (p in PATHWAYS)
                        kegg.dir = "pathways_tmp", species = KEGG_SP, out.suffix = "kegg")
     if(length(pv.out) != 2)
         next
-    fname = paste0(KEGG_SP, p, ".kegg.png" )
+
     ok_ <- !is.na(pv.out$plot.data.gene$mol.data)
-    catched <- c(catched, pv.out$plot.data.gene[ok_,]$kegg.names)
-    file.rename(from = fname, to = paste0("pathways/", sprintf("%02i_", sum(ok_)), fname))
+    fname = paste0("pathways/", sprintf("%02i_", sum(ok_)), KEGG_SP, p, ".kegg" )
+    keggs <- unique(pv.out$plot.data.gene[ok_,]$kegg.names)
+
+    if(length(keggs) > 0)
+    {
+        catched <- c(catched, keggs)
+        
+        t_ <- kegg_get(keggs, "ppp")
+        names(t_)[1] <- "pd_id"
+        t_ <- merge(t_, data[,c("Gene", "pd_id", "fc", "Source")], by = "pd_id")
+        t_ <- t_[,c("Gene", "pd_id", "fc", "Source", "Orthology", "Definition")]
+        t_ <- unique(t_)
+        write.table(t_, sep = "\t", quote = FALSE, row.names = FALSE,
+                    file = paste0(fname, ".txt"))
+        file.rename(from = paste0(KEGG_SP, p, ".kegg.png"),
+                    to = paste0(fname, ".png"))
+    } else
+    {
+        unlink(paste0(KEGG_SP, p, ".kegg.png"))
+    }
+    
     rm(ok_)
 }
 data$catched <- data$pd_id %in% catched
