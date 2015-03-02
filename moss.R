@@ -91,7 +91,7 @@ kegg_get <- function(id, key)
     }
     
     t <- lapply(id, inf)
-    t <- data.frame(matrix(unlist(t), nrow=length(t), byrow=T))
+    t <- data.frame(matrix(unlist(t), nrow=length(t), byrow=T), stringsAsFactors = FALSE)
     names(t) <- c("ID", "Orthology", "Definition")
     t
 }
