@@ -218,7 +218,7 @@ for (g in levels(total$group))
         if (nrow(ann) > 0)
         {
             ann <- ann[order(ann$PValue), ]
-            write.table(ann[,c("Category", "Term", "Count", "PValue")],
+            write.table(ann[,c("Category", "Term", "Count", "PValue", "Genes")],
                 file = paste0("groups/", g, ".david.txt"), quote = FALSE, sep = '\t')
         }else
         {
