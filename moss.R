@@ -153,6 +153,7 @@ total$group <- as.factor(apply(total[,c("mrnafc", "protfc", "protpv")], 1,
                                function(x) group(x[1], x[2], 0, x[3])))
 
 total <- merge(total, id_table, by = "Gene", all.x = TRUE)
+total <- unique(total)
 
 ##### FUNCTIONAL ANNOTATION #####
 bk_genes <- scan("background.txt", what = character())
