@@ -175,8 +175,9 @@ for (g in levels(total$group))
     n_k <- length((list_go))
     t_ <- kegg_get(list_go, "ath")
     names(t_)[1] <- "TAIR"
-    t_ <- merge(t_, total[,c("TAIR", "mrnafc", "protfc")], by = "TAIR")
-    t_ <- t_[,c("TAIR", "mrnafc", "protfc", "Orthology", "Definition")]
+    t_ <- merge(t_, total[,c("TAIR", "Gene", "mrnafc", "protfc")], by = "TAIR")
+    t_ <- t_[,c("TAIR", "Gene", "mrnafc", "protfc", "Orthology", "Definition")]
+    t_ <- unique(t_)
     write.table(t_, sep = "\t", quote = FALSE, row.names = FALSE,
                 file = paste0("groups/", g, sprintf("_%02i", n_k),  ".txt"))
     rm(t_)
