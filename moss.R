@@ -1,20 +1,23 @@
 require(ggplot2)
 require(KEGGREST)
 ####### Parameters #######
-FC2_TH <- 1
-FC15_TH <- 1
-TH <- FC15_TH
-SWATH_SOURCE <- "processed"   # "raw" or "processed"
+MRNA_BASE <- 2
+PROT_BASE <- 1.4
+MRNA_TH <- 1
+PROT_TH <- 1
+SWATH_SOURCE <- "own"   # "raw" or "processed" or "own"
 IDA_SOURCE <- "empai" # "empai" or "count"
 PN_SAMPLES <- c("F163", "F164", "F165")
+PN_SAMPLES_ <- c("X1_PN", "X2_PN")
 PP_SAMPLES <- c("F166", "F167", "F168", "F169")
-PROT_FILTER_PV <- FALSE
+PP_SAMPLES_ <- c("X1_PP", "X2_PP")
+PROT_FILTER_PV <- TRUE
 PROT_REQ_PV <- 0.05
 EMPAI_PV_REQ <- 0.05
 
 ##### ANNOTATION PARAMETERS #####
 ANN_METHOD <- "david"  # "david"
-USE_PV_EMPAI <- FALSE
+USE_PV_EMPAI <- TRUE
 DAVID_REQ_PV <- 0.05
 KEGG_SP <- "ppp"
 PATHWAYS <- c("00010", "00020", "00030", "00040", "00190", "00195", "00196")
@@ -26,19 +29,23 @@ USE_PV_EMPAI <- FALSE
 #USE_PV_EMPAI <- FALSE
 ##########################
 
-ggplotRegression <- function (fit) {
-    ggplot(fit$model, aes_string(x = names(fit$model)[2], y = names(fit$model)[1])) + 
+ggplotRegression <- function (fit, xname = NULL, yname = NULL, meth = "pearson") {
+    ggplot(fit$model, aes_string(x = ifelse(is.null(xname), names(fit$model)[2], xname), 
+                                 y = ifelse(is.null(yname), names(fit$model)[1], yname))) + 
         geom_point() +
         stat_smooth(method = "lm", col = "red") +
-        ggtitle(paste("Adj R2 = ",signif(summary(fit)$adj.r.squared, 2),
-                           "; Intercept =",signif(fit$coef[[1]],2 ),
-                           ";\n Slope =",signif(fit$coef[[2]], 2),
-                           "; P =",signif(summary(fit)$coef[2,4], 2)))
+        ggtitle(paste(#"Adj R2 = ",signif(summary(fit)$adj.r.squared, 2),
+                           "r = ", signif(cor((fit$model)[2], (fit$model)[1], 
+                                                  method = meth), 2),
+                           ";\n Intercept =",signif(fit$coef[[1]],2 ),
+                           "; Slope =",signif(fit$coef[[2]], 2)
+                           #"; P =",signif(summary(fit)$coef[2,4], 2)
+                           ))
 }
 
 group <- function(mrna, prot, pvmrna, protpv)
 {
-    if (abs(mrna) > TH)
+    if (abs(mrna) > MRNA_TH)
         if (mrna > 0)
             m <- 'M'
         else
@@ -46,7 +53,7 @@ group <- function(mrna, prot, pvmrna, protpv)
     else
         m <- '0'
     
-    if (abs(prot) > TH & protpv < PROT_REQ_PV)
+    if (abs(prot) > PROT_TH)# & protpv < PROT_REQ_PV)
         if (prot > 0)
             p <- 'P'
         else
@@ -98,7 +105,7 @@ kegg_get <- function(id, key)
 
 dir.create("plots", showWarnings = FALSE)
 
-mrna <- read.table("transcripts.csv", sep = '\t', header = TRUE, stringsAsFactors = FALSE)
+mrna <- read.csv("transcripts.csv", sep = '\t', header = TRUE, stringsAsFactors = FALSE)
 
 id_table <- data.frame(Gene = mrna$Gene, TAIR = mrna$TAIR, stringsAsFactors = FALSE)
 id_table <- id_table[grepl("^AT.+", id_table$TAIR), ]
@@ -108,12 +115,12 @@ mrna <- data.frame(Gene = mrna$Gene,# TAIR = mrna$TAIR,
                   PN = mrna$Protonema_FPKM,
                   stringsAsFactors = FALSE)
 
-mrna <- mrna[grepl("^Pp.+", mrna$Gene),]
+#mrna <- mrna[grepl("^Pp.+", mrna$Gene),]
 mrna <- aggregate(. ~ Gene, data = mrna, FUN = sum)
 
 mrna$mrnaPPtoPN <- mrna$PP/mrna$PN
 mrna <- na.omit(mrna)  # Fix it
-mrna$mrnafc <- log(mrna$mrnaPPtoPN, base = 1.5)
+mrna$mrnafc <- log(mrna$mrnaPPtoPN, base = MRNA_BASE)
 
 
 if (SWATH_SOURCE == "processed")
@@ -135,15 +142,56 @@ if (SWATH_SOURCE == "processed")
     {
         prot <- prot[prot$protpv < PROT_REQ_PV,]
     }
+} else if(SWATH_SOURCE == "own")
+{
+    prot <- read.table("protein_score_wide.txt", sep = '\t', header = TRUE, 
+                       stringsAsFactors = FALSE)
+    prot <- rename(prot ,c("protein_id" = "Gene"))
+    
+    #Correletions between SWATH bio.replicates
+    PN_c <- lm(X1_PN ~ X2_PN, prot)
+    PN_c1 <- lm(X1_PN ~ X2_PN, prot[prot$X1_PN < 1e7 & prot$X2_PN < 1e7,])
+    p <- ggplotRegression(PN_c)
+    print(p)
+    ggsave("plots/prot_replicates_PN_all.png", p)
+    p <- ggplotRegression(PN_c1)
+    print(p)
+    ggsave("plots/prot_replicates_PN_less1e7.png", p)
+    
+    PP_c <- lm(X1_PP ~ X2_PP, prot)
+    PP_c1 <- lm(X1_PP ~ X2_PP, prot[prot$X1_PP < 1e7 & prot$X2_PP < 1e7,])
+    p <- ggplotRegression(PP_c)
+    print(p)
+    ggsave("plots/prot_replicates_PP_all.png", p)
+    p <- ggplotRegression(PP_c1)
+    print(p)
+    ggsave("plots/prot_replicates_PP_less1e7.png", p)
+    
+    prot$PN <- apply(prot[,PN_SAMPLES_], 1, FUN = mean)
+    prot$PP <- apply(prot[,PP_SAMPLES_], 1, FUN = mean)
+    prot$protPPtoPN <- prot$PP/prot$PN
+    prot$protpv <- apply(prot, 1, tst, PN_SAMPLES_, PP_SAMPLES_)   
+
+}else if(SWATH_SOURCE == "own2")
+{
+    prot <- read.table("protein_score_wide2.txt", sep = '\t', header = TRUE, 
+                       stringsAsFactors = FALSE)
+    prot <- rename(prot ,c("protein_id" = "Gene", "X1_PP" = "PP", "X1_PN" = "PN"))
+    
+    #Correletions between SWATH bio.replicates
+    
+    prot$protPPtoPN <- prot$PP/prot$PN
+    prot$protpv <- apply(prot, 1, tst, "PN", "PP")   
+    
 } else
 {
     stop("Wrong SWATH source!")
 }
 
-prot <- prot[grepl("^Pp.+", prot$Gene),]
+#prot <- prot[grepl("^Pp.+", prot$Gene),]
 prot$Gene <- sapply(strsplit(prot$Gene, split = '\\.'), "[", 1)
 prot <- aggregate(. ~ Gene, data = prot, FUN = sum)
-prot$protfc <- log(prot$protPPtoPN, base = 1.5)
+prot$protfc <- log(prot$protPPtoPN, base = PROT_BASE)
 
 total <- merge(mrna[,c("Gene", "mrnaPPtoPN", "mrnafc")], 
                prot[, c("Gene", "protPPtoPN", "protfc","protpv")], by = "Gene" )#, all.y = TRUE)
@@ -171,7 +219,7 @@ for (g in levels(total$group))
 {
     print(paste0("Annotating ", g))
     
-    list_go <- total[total$group==g, "TAIR"]
+    list_go <- na.omit(total[total$group==g, "TAIR"])
     n_k <- length((list_go))
     t_ <- kegg_get(list_go, "ath")
     names(t_)[1] <- "TAIR"
@@ -257,7 +305,7 @@ ida <- read.table("ida_by_spectra.csv", sep = "\t", header = TRUE, stringsAsFact
 ida$Gene <- sapply(strsplit(ida$Gene, split = '\\.'), "[", 1)
 ida <- aggregate(. ~ Gene, data = ida, FUN = sum)
 ida$idaPPtoPN <- ida$PP/ida$PN
-ida$idafc <- log(ida$idaPPtoPN, base = 1.5)
+ida$idafc <- log(ida$idaPPtoPN, base = PROT_BASE)
 
 empai <- read.table("emPAI.csv", sep = '\t', header = TRUE, stringsAsFactors = FALSE)
 empai$Gene <- sapply(strsplit(empai$Gene, split = '\\.'), "[", 1)
@@ -265,7 +313,7 @@ empai <- aggregate(. ~ Gene, data = empai, FUN = sum)
 empai$PN <- apply(empai[,PN_SAMPLES], 1, FUN = mean)
 empai$PP <- apply(empai[,PP_SAMPLES], 1, FUN = mean)
 empai$empaiPPtoPN <- empai$PP/empai$PN
-empai$empaifc <- log(empai$empaiPPtoPN, base = 1.5)
+empai$empaifc <- log(empai$empaiPPtoPN, base = PROT_BASE)
 empai$empaipv <- apply(empai, 1, tst, PN_SAMPLES, PP_SAMPLES)
 empai_all <- empai
 empai <- empai[empai$empaipv < EMPAI_PV_REQ, ]   # CHECK IT !!!!
