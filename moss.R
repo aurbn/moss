@@ -5,13 +5,13 @@ MRNA_BASE <- 2
 PROT_BASE <- 1.4
 MRNA_TH <- 1
 PROT_TH <- 1
-SWATH_SOURCE <- "own"   # "raw" or "processed" or "own"
+SWATH_SOURCE <- "raw"   # "raw" or "processed" or "own" or "own2" or "split"
 IDA_SOURCE <- "empai" # "empai" or "count"
 PN_SAMPLES <- c("F163", "F164", "F165")
 PN_SAMPLES_ <- c("X1_PN", "X2_PN")
 PP_SAMPLES <- c("F166", "F167", "F168", "F169")
 PP_SAMPLES_ <- c("X1_PP", "X2_PP")
-PROT_FILTER_PV <- TRUE
+PROT_FILTER_PV <- FALSE
 PROT_REQ_PV <- 0.05
 EMPAI_PV_REQ <- 0.05
 
@@ -105,14 +105,26 @@ kegg_get <- function(id, key)
 
 dir.create("plots", showWarnings = FALSE)
 
-mrna <- read.csv("transcripts.csv", sep = '\t', header = TRUE, stringsAsFactors = FALSE)
+mrna_old <- read.csv("transcripts.csv", sep = '\t', header = TRUE, stringsAsFactors = FALSE)
+mrna <- read.csv("gene_exp.diff", sep = '\t', header = TRUE, stringsAsFactors = FALSE)
+mrna <- mrna[ mrna$sample_1 %in% c("Protonema", "Protoplasts") &
+              mrna$sample_2 %in% c("Protonema", "Protoplasts"),]
+if (unique(mrna$sample_1) != "Protonema" |
+    unique(mrna$sample_2) != "Protoplasts")
+{
+    stop("Input data error!")
+}
+mrna <- mrna[, c("gene", "value_1", "value_2", "q_value")]
+mrna <- rename(mrna, c("gene" = "Gene", "value_1" = "PN", 
+                       "value_2" = "PP", "q_value" = "mrnapv"))
+mrna <- mrna[grepl("^Pp.+", mrna$Gene) ,]
 
-id_table <- data.frame(Gene = mrna$Gene, TAIR = mrna$TAIR, stringsAsFactors = FALSE)
+id_table <- data.frame(Gene = mrna_old$Gene, TAIR = mrna_old$TAIR, stringsAsFactors = FALSE)
 id_table <- id_table[grepl("^AT.+", id_table$TAIR), ]
 
-mrna <- data.frame(Gene = mrna$Gene,# TAIR = mrna$TAIR,
-                  PP = mrna$Protoplasts_FPKM,
-                  PN = mrna$Protonema_FPKM,
+mrna_old <- data.frame(Gene = mrna_old$Gene,# TAIR = mrna$TAIR,
+                  PP = mrna_old$Protoplasts_FPKM,
+                  PN = mrna_old$Protonema_FPKM,
                   stringsAsFactors = FALSE)
 
 #mrna <- mrna[grepl("^Pp.+", mrna$Gene),]
@@ -326,16 +338,6 @@ tmp <- tmp[is.finite(tmp$empaifc),]
 tmpm <- lm(mrnafc ~ empaifc, data = tmp)
 p <- ggplotRegression(tmpm)
 ggsave("plots/mrna_empai.png", p)
-print(p)
-
-
-tmp <- prot[, c("Gene", "protfc")]
-tmp <- merge(tmp, empai_all[, c("Gene", "empaifc")], by = "Gene")
-tmp <- na.omit(tmp)
-tmp <- tmp[is.finite(tmp$empaifc) & is.finite(tmp$protfc),]
-tmpm <- lm(empaifc ~ protfc, data = tmp)
-p <- ggplotRegression(tmpm)
-ggsave("plots/empai_prot.png", p)
 print(p)
 
 
