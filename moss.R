@@ -1,11 +1,15 @@
 require(ggplot2)
 require(KEGGREST)
+require(plyr)
 ####### Parameters #######
 MRNA_BASE <- 2
 PROT_BASE <- 1.4
 MRNA_TH <- 1
 PROT_TH <- 1
+MRNA_REQ_PV <- 0.05
+
 SWATH_SOURCE <- "raw"   # "raw" or "processed" or "own" or "own2" or "split"
+NORM_SWATH <- FALSE #only for raw
 IDA_SOURCE <- "empai" # "empai" or "count"
 PN_SAMPLES <- c("F163", "F164", "F165")
 PN_SAMPLES_ <- c("X1_PN", "X2_PN")
@@ -43,9 +47,9 @@ ggplotRegression <- function (fit, xname = NULL, yname = NULL, meth = "pearson")
                            ))
 }
 
-group <- function(mrna, prot, pvmrna, protpv)
+group <- function(mrna, prot, mrnapv, protpv)
 {
-    if (abs(mrna) > MRNA_TH)
+    if (abs(mrna) > MRNA_TH & mrnapv < MRNA_REQ_PV)
         if (mrna > 0)
             m <- 'M'
         else
@@ -53,7 +57,7 @@ group <- function(mrna, prot, pvmrna, protpv)
     else
         m <- '0'
     
-    if (abs(prot) > PROT_TH)# & protpv < PROT_REQ_PV)
+    if (abs(prot) > PROT_TH & protpv < PROT_REQ_PV)
         if (prot > 0)
             p <- 'P'
         else
@@ -128,7 +132,8 @@ mrna_old <- data.frame(Gene = mrna_old$Gene,# TAIR = mrna$TAIR,
                   stringsAsFactors = FALSE)
 
 #mrna <- mrna[grepl("^Pp.+", mrna$Gene),]
-mrna <- aggregate(. ~ Gene, data = mrna, FUN = sum)
+#mrna <- aggregate(. ~ Gene, data = mrna, FUN = sum)
+mrna <- mrna[!(duplicated(mrna$Gene) | duplicated(mrna$Gene,fromLast = TRUE)),]
 
 mrna$mrnaPPtoPN <- mrna$PP/mrna$PN
 mrna <- na.omit(mrna)  # Fix it
@@ -144,7 +149,20 @@ if (SWATH_SOURCE == "processed")
 } else if (SWATH_SOURCE == "raw")
 {
     prot <- read.table("swath_raw.csv", sep = '\t', header = TRUE, stringsAsFactors = FALSE)
-    prot$Gene <- prot$protein_id
+    
+    if (NORM_SWATH)
+    {
+        p <- prot[,-1]
+        avgs <- apply(p, 2, mean)
+        p <- sweep(p, 2, avgs, "/") 
+        p$Gene <- prot$protein_id
+        prot <- p
+        rm(p)
+    } else
+    {
+        prot$Gene <- prot$protein_id
+    }
+     0
     prot$protein_id <- NULL
     prot$PN <- apply(prot[,PN_SAMPLES], 1, FUN = mean)
     prot$PP <- apply(prot[,PP_SAMPLES], 1, FUN = mean)
@@ -205,12 +223,12 @@ prot$Gene <- sapply(strsplit(prot$Gene, split = '\\.'), "[", 1)
 prot <- aggregate(. ~ Gene, data = prot, FUN = sum)
 prot$protfc <- log(prot$protPPtoPN, base = PROT_BASE)
 
-total <- merge(mrna[,c("Gene", "mrnaPPtoPN", "mrnafc")], 
+total <- merge(mrna[,c("Gene", "mrnaPPtoPN", "mrnafc", "mrnapv")], 
                prot[, c("Gene", "protPPtoPN", "protfc","protpv")], by = "Gene" )#, all.y = TRUE)
 total <- unique(total)
 
-total$group <- as.factor(apply(total[,c("mrnafc", "protfc", "protpv")], 1,
-                               function(x) group(x[1], x[2], 0, x[3])))
+total$group <- as.factor(apply(total[,c("mrnafc", "protfc", "mrnapv","protpv")], 1,
+                               function(x) group(x[1], x[2], x[3], x[4])))
 
 total <- merge(total, id_table, by = "Gene", all.x = TRUE)
 total <- unique(total)
