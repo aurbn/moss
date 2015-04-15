@@ -233,6 +233,21 @@ total$group <- as.factor(apply(total[,c("mrnafc", "protfc", "mrnapv","protpv")],
 total <- merge(total, id_table, by = "Gene", all.x = TRUE)
 total <- unique(total)
 
+p <- ggplot(total, aes(x=protfc, y=mrnafc, colour = group))
+p <- p + geom_point(size  = 3)
+p <- p + geom_hline()
+p <- p + geom_vline()
+ggsave("plots/groups.png", p)
+print(p)
+
+
+tmp <- total[, c("Gene","mrnafc", "protfc", "group")]
+tmp <- na.omit(tmp)
+tmpm <- lm(mrnafc ~ protfc, data = tmp)
+p <- ggplotRegression(tmpm)
+ggsave("plots/mrna_prot.png", p)
+print(p)
+
 ##### FUNCTIONAL ANNOTATION #####
 bk_genes <- scan("background.txt", what = character())
 
@@ -312,20 +327,7 @@ for (g in levels(total$group))
 #                abs(total$protfc) > TH,]
 
 #plot(total$mrnafc, total$protfc, pch = 19, col = total$group)
-p <- ggplot(total, aes(x=protfc, y=mrnafc, colour = group))
-p <- p + geom_point(size  = 3)
-p <- p + geom_hline()
-p <- p + geom_vline()
-ggsave("plots/groups.png", p)
-print(p)
 
-
-tmp <- total[, c("Gene","mrnafc", "protfc", "group")]
-tmp <- na.omit(tmp)
-tmpm <- lm(mrnafc ~ protfc, data = tmp)
-p <- ggplotRegression(tmpm)
-ggsave("plots/mrna_prot.png", p)
-print(p)
 
 #backgrpond
 
