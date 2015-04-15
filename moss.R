@@ -223,8 +223,9 @@ prot$Gene <- sapply(strsplit(prot$Gene, split = '\\.'), "[", 1)
 prot <- aggregate(. ~ Gene, data = prot, FUN = sum)
 prot$protfc <- log(prot$protPPtoPN, base = PROT_BASE)
 
-total <- merge(mrna[,c("Gene", "mrnaPPtoPN", "mrnafc", "mrnapv")], 
-               prot[, c("Gene", "protPPtoPN", "protfc","protpv")], by = "Gene" )#, all.y = TRUE)
+total <- merge(mrna[,c("Gene", "mrnaPPtoPN", "mrnafc", "mrnapv", "PP", "PN")], 
+               prot[, c("Gene", "protPPtoPN", "protfc","protpv", "PP", "PN")], by = "Gene" )#, all.y = TRUE)
+total <- rename(total,c("PP.x" = "PPmrna", "PN.x" = "PNmrna", "PP.y" = "PPswath", "PN.y" = "PNswath"))
 total <- unique(total)
 
 total$group <- as.factor(apply(total[,c("mrnafc", "protfc", "mrnapv","protpv")], 1,
@@ -233,18 +234,24 @@ total$group <- as.factor(apply(total[,c("mrnafc", "protfc", "mrnapv","protpv")],
 total <- merge(total, id_table, by = "Gene", all.x = TRUE)
 total <- unique(total)
 
+write.table(total, "plots/mrna_swath.csv", sep="\t", quote = FALSE, row.names = FALSE)
+
 p <- ggplot(total, aes(x=protfc, y=mrnafc, colour = group))
 p <- p + geom_point(size  = 3)
 p <- p + geom_hline()
 p <- p + geom_vline()
+p <- p + xlab(expression(log [1.4]~(protein~fold~change)))
+p <- p + ylab(expression(log [2]~(transcript~fold~change)))
 ggsave("plots/groups.png", p)
 print(p)
 
 
 tmp <- total[, c("Gene","mrnafc", "protfc", "group")]
-tmp <- na.omit(tmp)
+tmp <- tmp[is.finite(tmp$mrnafc)&is.finite(tmp$protfc),]
 tmpm <- lm(mrnafc ~ protfc, data = tmp)
 p <- ggplotRegression(tmpm)
+p <- p + xlab(expression(log [1.4]~(protein~fold~change)))
+p <- p + ylab(expression(log [2]~(transcript~fold~change)))
 ggsave("plots/mrna_prot.png", p)
 print(p)
 
@@ -350,13 +357,20 @@ empai$empaipv <- apply(empai, 1, tst, PN_SAMPLES, PP_SAMPLES)
 empai_all <- empai
 empai <- empai[empai$empaipv < EMPAI_PV_REQ, ]   # CHECK IT !!!!
 
+otab <- empai_all[,c("Gene", "PP", "PN", "empaifc", "empaipv")]
+otab <- otab[!(otab$PP == 0 & otab$PN == 0),]
+otab <- rename(otab, c("PP" = "PPempai", "PN" = "PNempai"))
+otab <- merge(otab, total, by = "Gene", all.x = TRUE)
+write.table(otab, "plots/empai_mrna_swath.csv", sep="\t", quote = FALSE, row.names = FALSE)
+
 
 tmp <- mrna[, c("Gene", "mrnafc")]
 tmp <- merge(tmp, empai_all[, c("Gene", "empaifc")], by = "Gene")
-tmp <- na.omit(tmp)
-tmp <- tmp[is.finite(tmp$empaifc),]
+tmp <- tmp[is.finite(tmp$mrnafc)&is.finite(tmp$empaifc),]
 tmpm <- lm(mrnafc ~ empaifc, data = tmp)
 p <- ggplotRegression(tmpm)
+p <- p + xlab(expression(log [1.4]~(protein~EMPAI~fold~change)))
+p <- p + ylab(expression(log [2]~(transcript~fold~change)))
 ggsave("plots/mrna_empai.png", p)
 print(p)
 
@@ -367,6 +381,8 @@ tmp <- na.omit(tmp)
 tmp <- tmp[is.finite(tmp$empaifc) & is.finite(tmp$protfc),]
 tmpm <- lm(empaifc ~ protfc, data = tmp)
 p <- ggplotRegression(tmpm)
+p <- p + xlab(expression(log [1.4]~(protein~SWATH~fold~change)))
+p <- p + ylab(expression(log [1.4]~(protein~EMPAI~fold~change)))
 ggsave("plots/empai_prot.png", p)
 print(p)
 # Pathways
