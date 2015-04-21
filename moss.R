@@ -223,10 +223,27 @@ prot$Gene <- sapply(strsplit(prot$Gene, split = '\\.'), "[", 1)
 prot <- aggregate(. ~ Gene, data = prot, FUN = sum)
 prot$protfc <- log(prot$protPPtoPN, base = PROT_BASE)
 
+write.table(prot, "plots/swathDEP.txt", sep="\t", quote = FALSE, row.names = FALSE)
+
 total <- merge(mrna[,c("Gene", "mrnaPPtoPN", "mrnafc", "mrnapv", "PP", "PN")], 
                prot[, c("Gene", "protPPtoPN", "protfc","protpv", "PP", "PN")], by = "Gene" )#, all.y = TRUE)
 total <- rename(total,c("PP.x" = "PPmrna", "PN.x" = "PNmrna", "PP.y" = "PPswath", "PN.y" = "PNswath"))
 total <- unique(total)
+
+
+totalpp <- total[,c("Gene", "PPmrna", "PPswath")]
+totalpp <- rename(totalpp, c("PPmrna" = "mrna", "PPswath" = "swath"))
+totalpp$cells <- "PP"
+totalpn <- total[,c("Gene", "PNmrna", "PNswath")]
+totalpn <- rename(totalpn, c("PNmrna" = "mrna", "PNswath" = "swath"))
+totalpn$cells <- "PN"
+totalp <- rbind(totalpp, totalpn)
+tmpm <- lm(mrna ~ swath, data = totalp)
+p <- ggplotRegression(tmpm)
+p <- p + xlab(expression(SWATH,~units))
+p <- p + ylab(expression(mRNA,~FPKM))
+ggsave("plots/mRNA_SWATH_raw.png", p)
+print(p)
 
 total$group <- as.factor(apply(total[,c("mrnafc", "protfc", "mrnapv","protpv")], 1,
                                function(x) group(x[1], x[2], x[3], x[4])))
@@ -239,7 +256,7 @@ tbl <- with(warpbreaks, table(substr(total$group, 1, 1), substr(total$group, 2, 
                               dnn = c("MRNA", "SWATH")))
 write.ftable(ftable(tbl),file = "groups/table.txt", sep = '\t', quote = FALSE)
 
-write.table(total, "plots/mrna_swath.csv", sep="\t", quote = FALSE, row.names = FALSE)
+write.table(total, "plots/mrna_swath.txt", sep="\t", quote = FALSE, row.names = FALSE)
 
 p <- ggplot(total, aes(x=protfc, y=mrnafc, colour = group))
 p <- p + geom_point(size  = 3)
