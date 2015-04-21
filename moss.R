@@ -162,7 +162,7 @@ if (SWATH_SOURCE == "processed")
     {
         prot$Gene <- prot$protein_id
     }
-     0
+     
     prot$protein_id <- NULL
     prot$PN <- apply(prot[,PN_SAMPLES], 1, FUN = mean)
     prot$PP <- apply(prot[,PP_SAMPLES], 1, FUN = mean)
