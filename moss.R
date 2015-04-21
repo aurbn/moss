@@ -28,6 +28,7 @@ PATHWAYS <- c("00010", "00020", "00030", "00040", "00190", "00195", "00196")
 ALL_PATHWAYS <- scan("all_kegg.txt", what = character())
 PATHWAYS <- ALL_PATHWAYS
 USE_PV_EMPAI <- FALSE
+SCALE_EMPAI <- FALSE
 #http://www.kegg.jp/kegg-bin/search_pathway_text?map=ppp&keyword=&mode=1&viewImage=true
 
 #USE_PV_EMPAI <- FALSE
@@ -415,6 +416,35 @@ empai$empaipv <- apply(empai, 1, tst, PN_SAMPLES, PP_SAMPLES)
 empai_all <- empai
 empai <- empai[empai$empaipv < EMPAI_PV_REQ, ]   # CHECK IT !!!!
 
+if(SCALE_EMPAI == TRUE)
+{
+    tmp <- prot[, c("Gene", "protPPtoPN", "protfc")]
+    tmp <- merge(tmp, empai_all[, c("Gene", "empaifc", "empaiPPtoPN")], by = "Gene")
+    tmp <- na.omit(tmp)
+    tmp <- tmp[is.finite(tmp$empaifc) & is.finite(tmp$protfc),]
+    tmpm <- lm(empaiPPtoPN ~ protPPtoPN, data = tmp)
+    empaiInt = tmpm$coefficients[1]
+    empaiSlope = tmpm$coefficients[2]
+    print(ggplotRegression(tmpm))
+    
+    empai_all$empaiPPtoPN <- (empai_all$empaiPPtoPN - empaiInt)/empaiSlope
+    empai$empaifc <- log(empai$empaiPPtoPN, base = PROT_BASE)
+    empai$empaipv <- apply(empai, 1, tst, PN_SAMPLES, PP_SAMPLES)
+    empai_all <- empai
+    empai <- empai[empai$empaipv < EMPAI_PV_REQ, ]
+    tmp <- prot[, c("Gene", "protPPtoPN", "protfc")]
+    tmp <- merge(tmp, empai_all[, c("Gene", "empaifc", "empaiPPtoPN")], by = "Gene")
+    
+    tmpm <- lm(empaiPPtoPN ~ protPPtoPN, data = tmp)
+    p <- ggplotRegression(tmpm)
+    p <- p + xlab(expression(protein~SWATH~fold~change))
+    p <- p + ylab(expression(protein~EMPAI~fold~change))
+    ggsave("plots/empai_prot_abs.png", p)
+    print(p)
+}
+
+
+
 otab <- empai_all[,c("Gene", "PP", "PN", "empaifc", "empaipv")]
 otab <- otab[!(otab$PP == 0 & otab$PN == 0),]
 otab <- rename(otab, c("PP" = "PPempai", "PN" = "PNempai"))
@@ -433,8 +463,8 @@ ggsave("plots/mrna_empai.png", p)
 print(p)
 
 
-tmp <- prot[, c("Gene", "protfc")]
-tmp <- merge(tmp, empai_all[, c("Gene", "empaifc")], by = "Gene")
+tmp <- prot[, c("Gene", "protPPtoPN", "protfc")]
+tmp <- merge(tmp, empai_all[, c("Gene", "empaifc", "empaiPPtoPN")], by = "Gene")
 tmp <- na.omit(tmp)
 tmp <- tmp[is.finite(tmp$empaifc) & is.finite(tmp$protfc),]
 tmpm <- lm(empaifc ~ protfc, data = tmp)
