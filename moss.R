@@ -234,6 +234,7 @@ total$group <- as.factor(apply(total[,c("mrnafc", "protfc", "mrnapv","protpv")],
 total <- merge(total, id_table, by = "Gene", all.x = TRUE)
 total <- unique(total)
 
+
 tbl <- with(warpbreaks, table(substr(total$group, 1, 1), substr(total$group, 2, 2),
                               dnn = c("MRNA", "SWATH")))
 write.ftable(ftable(tbl),file = "groups/table.txt", sep = '\t', quote = FALSE)
@@ -499,23 +500,3 @@ for (p in PATHWAYS)
 data$catched <- data$pd_id %in% catched
 print(paste(as.character(sum(data$catched)), "proteins in pathways"))
 unlink("pathways_tmp", recursive = TRUE)
-
-
-
-# 
-# enz <- enz[enz$Organism == "Physcomitrella patens", 
-#            c("Gene.name", "Enzymatic.activity", "Reaction.EC")]
-# enz <- data.frame(Gene = enz$Gene.name,
-#                   Reaction = enz$Enzymatic.activity,
-#                   EC = enz$Reaction.EC,
-#                   stringsAsFactors = FALSE)
-# enz$Gene <- sapply(strsplit(enz$Gene, split = '\\.'), "[", 1)
-# enz <- unique(enz)
-# 
-# pathway <- merge(ida[,c("Gene", 'idaPPtoPN')], 
-#                  prot[,c("Gene", "protPPtoPN")],
-#                  by = "Gene", all = TRUE)
-# pathway <- merge(pathway, enz, by = "Gene", all.y = TRUE)
-# pathway <- pathway[(!is.na(pathway$idaPPtoPN)) | (!is.na(pathway$protPPtoPN)),]
-# pathway <- pathway[order(pathway$EC),]
-# write.table(pathway, "pathways/glycolysis.txt", sep = "\t")
