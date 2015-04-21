@@ -1,11 +1,15 @@
 require(ggplot2)
 require(KEGGREST)
+require(plyr)
 ####### Parameters #######
 MRNA_BASE <- 2
 PROT_BASE <- 1.4
 MRNA_TH <- 1
 PROT_TH <- 1
+MRNA_REQ_PV <- 0.05
+
 SWATH_SOURCE <- "raw"   # "raw" or "processed" or "own" or "own2" or "split"
+NORM_SWATH <- FALSE #only for raw
 IDA_SOURCE <- "empai" # "empai" or "count"
 PN_SAMPLES <- c("F163", "F164", "F165")
 PN_SAMPLES_ <- c("X1_PN", "X2_PN")
@@ -16,7 +20,7 @@ PROT_REQ_PV <- 0.05
 EMPAI_PV_REQ <- 0.05
 
 ##### ANNOTATION PARAMETERS #####
-ANN_METHOD <- "david"  # "david"
+ANN_METHOD <- "topGO" #  # "david" or "topGO"
 USE_PV_EMPAI <- TRUE
 DAVID_REQ_PV <- 0.05
 KEGG_SP <- "ppp"
@@ -43,9 +47,9 @@ ggplotRegression <- function (fit, xname = NULL, yname = NULL, meth = "pearson")
                            ))
 }
 
-group <- function(mrna, prot, pvmrna, protpv)
+group <- function(mrna, prot, mrnapv, protpv)
 {
-    if (abs(mrna) > MRNA_TH)
+    if (abs(mrna) > MRNA_TH & mrnapv < MRNA_REQ_PV)
         if (mrna > 0)
             m <- 'M'
         else
@@ -53,7 +57,7 @@ group <- function(mrna, prot, pvmrna, protpv)
     else
         m <- '0'
     
-    if (abs(prot) > PROT_TH)# & protpv < PROT_REQ_PV)
+    if (abs(prot) > PROT_TH & protpv < PROT_REQ_PV)
         if (prot > 0)
             p <- 'P'
         else
@@ -128,7 +132,8 @@ mrna_old <- data.frame(Gene = mrna_old$Gene,# TAIR = mrna$TAIR,
                   stringsAsFactors = FALSE)
 
 #mrna <- mrna[grepl("^Pp.+", mrna$Gene),]
-mrna <- aggregate(. ~ Gene, data = mrna, FUN = sum)
+#mrna <- aggregate(. ~ Gene, data = mrna, FUN = sum)
+mrna <- mrna[!(duplicated(mrna$Gene) | duplicated(mrna$Gene,fromLast = TRUE)),]
 
 mrna$mrnaPPtoPN <- mrna$PP/mrna$PN
 mrna <- na.omit(mrna)  # Fix it
@@ -144,7 +149,20 @@ if (SWATH_SOURCE == "processed")
 } else if (SWATH_SOURCE == "raw")
 {
     prot <- read.table("swath_raw.csv", sep = '\t', header = TRUE, stringsAsFactors = FALSE)
-    prot$Gene <- prot$protein_id
+    
+    if (NORM_SWATH)
+    {
+        p <- prot[,-1]
+        avgs <- apply(p, 2, mean)
+        p <- sweep(p, 2, avgs, "/") 
+        p$Gene <- prot$protein_id
+        prot <- p
+        rm(p)
+    } else
+    {
+        prot$Gene <- prot$protein_id
+    }
+     0
     prot$protein_id <- NULL
     prot$PN <- apply(prot[,PN_SAMPLES], 1, FUN = mean)
     prot$PP <- apply(prot[,PP_SAMPLES], 1, FUN = mean)
@@ -205,15 +223,41 @@ prot$Gene <- sapply(strsplit(prot$Gene, split = '\\.'), "[", 1)
 prot <- aggregate(. ~ Gene, data = prot, FUN = sum)
 prot$protfc <- log(prot$protPPtoPN, base = PROT_BASE)
 
-total <- merge(mrna[,c("Gene", "mrnaPPtoPN", "mrnafc")], 
-               prot[, c("Gene", "protPPtoPN", "protfc","protpv")], by = "Gene" )#, all.y = TRUE)
+total <- merge(mrna[,c("Gene", "mrnaPPtoPN", "mrnafc", "mrnapv", "PP", "PN")], 
+               prot[, c("Gene", "protPPtoPN", "protfc","protpv", "PP", "PN")], by = "Gene" )#, all.y = TRUE)
+total <- rename(total,c("PP.x" = "PPmrna", "PN.x" = "PNmrna", "PP.y" = "PPswath", "PN.y" = "PNswath"))
 total <- unique(total)
 
-total$group <- as.factor(apply(total[,c("mrnafc", "protfc", "protpv")], 1,
-                               function(x) group(x[1], x[2], 0, x[3])))
+total$group <- as.factor(apply(total[,c("mrnafc", "protfc", "mrnapv","protpv")], 1,
+                               function(x) group(x[1], x[2], x[3], x[4])))
 
 total <- merge(total, id_table, by = "Gene", all.x = TRUE)
 total <- unique(total)
+
+tbl <- with(warpbreaks, table(substr(total$group, 1, 1), substr(total$group, 2, 2),
+                              dnn = c("MRNA", "SWATH")))
+write.ftable(ftable(tbl),file = "groups/table.txt", sep = '\t', quote = FALSE)
+
+write.table(total, "plots/mrna_swath.csv", sep="\t", quote = FALSE, row.names = FALSE)
+
+p <- ggplot(total, aes(x=protfc, y=mrnafc, colour = group))
+p <- p + geom_point(size  = 3)
+p <- p + geom_hline()
+p <- p + geom_vline()
+p <- p + xlab(expression(log [1.4]~(protein~fold~change)))
+p <- p + ylab(expression(log [2]~(transcript~fold~change)))
+ggsave("plots/groups.png", p)
+print(p)
+
+
+tmp <- total[, c("Gene","mrnafc", "protfc", "group")]
+tmp <- tmp[is.finite(tmp$mrnafc)&is.finite(tmp$protfc),]
+tmpm <- lm(mrnafc ~ protfc, data = tmp)
+p <- ggplotRegression(tmpm)
+p <- p + xlab(expression(log [1.4]~(protein~fold~change)))
+p <- p + ylab(expression(log [2]~(transcript~fold~change)))
+ggsave("plots/mrna_prot.png", p)
+print(p)
 
 ##### FUNCTIONAL ANNOTATION #####
 bk_genes <- scan("background.txt", what = character())
@@ -224,6 +268,24 @@ if (ANN_METHOD == "david")
     david <- DAVIDWebService$new(email='anatoly.urban@phystech.edu')
     BG <- addList(david, bk_genes, idType="TAIR_ID", listName="bkgrd", listType="Background")
     setAnnotationCategories(david, c("GOTERM_BP_ALL", "GOTERM_MF_ALL"))
+} else if(ANN_METHOD == "topGO")
+{
+    require(topGO)
+#     gosdb = read.table("cosmoss_go_melt.txt", sep = "\t", col.names = c("Gene", "GO", "Descr"), 
+#                        stringsAsFactors = FALSE)
+#     gosdb <- gosdb[grepl("^Pp.+", gosdb$Gene),]
+#     gosdb$Gene <- sapply(strsplit(gosdb$Gene, split = '\\.'), "[", 1)
+#     
+    geneID2GO <- readMappings(file = "cosmoss_go_cast.txt")
+    GO2geneID <- inverseList(geneID2GO)
+    geneNames <- names(geneID2GO)
+
+    getSigInTerm <- function(term, godata)
+    {
+        sg = sigGenes(GOdata)
+        tg = genesInTerm(GOdata, term)[[1]]
+        paste(intersect(sg,tg), collapse = ", ")
+    }
 }
 
 dir.create("groups", showWarnings = FALSE)
@@ -231,19 +293,19 @@ for (g in levels(total$group))
 {
     print(paste0("Annotating ", g))
     
-    list_go <- na.omit(total[total$group==g, "TAIR"])
-    n_k <- length((list_go))
-    t_ <- kegg_get(list_go, "ath")
-    names(t_)[1] <- "TAIR"
-    t_ <- merge(t_, total[,c("TAIR", "Gene", "mrnafc", "protfc")], by = "TAIR")
-    t_ <- t_[,c("TAIR", "Gene", "mrnafc", "protfc", "Orthology", "Definition")]
-    t_ <- unique(t_)
-    write.table(t_, sep = "\t", quote = FALSE, row.names = FALSE,
-                file = paste0("groups/", g, sprintf("_%02i", n_k),  ".txt"))
-    rm(t_)
-    
     if (ANN_METHOD == "david")
     {
+        list_go <- na.omit(total[total$group==g, "TAIR"])
+        n_k <- length((list_go))
+        t_ <- kegg_get(list_go, "ath")
+        names(t_)[1] <- "TAIR"
+        t_ <- merge(t_, total[,c("TAIR", "Gene", "mrnafc", "protfc")], by = "TAIR")
+        t_ <- t_[,c("TAIR", "Gene", "mrnafc", "protfc", "Orthology", "Definition")]
+        t_ <- unique(t_)
+        write.table(t_, sep = "\t", quote = FALSE, row.names = FALSE,
+                    file = paste0("groups/", g, sprintf("_%02i", n_k),  ".txt"))
+        rm(t_)
+        
         FG <- addList(david, list_go, idType="TAIR_ID", listName=g, listType="Gene")
         setCurrentBackgroundPosition(david,
             grep("bkgrd", getBackgroundListNames(david)))
@@ -286,31 +348,37 @@ for (g in levels(total$group))
         {
             write("No significant results!", file = paste0("groups/", g, ".david.txt"))
         }
-    }    
+    }else if (ANN_METHOD == "topGO")
+    {
+        geneList = total[total$group == g, "Gene"]
+        genes = geneList
+        geneList <- factor(as.integer(geneNames %in% geneList))
+        if (length(levels(geneList)) != 2)
+            next
+        
+        names(geneList) <- geneNames
+        
+        for (ont in c("CC", "BP", "MF"))
+        {
+            GOdata <- new("topGOdata",ontology=ont, allGenes = geneList, 
+                          annot = annFUN.gene2GO, gene2GO = geneID2GO)
+            
+            test.stat <- new("classicCount", testStatistic = GOFisherTest, name = "Fisher test")
+            resultFisher <- getSigGroups(GOdata, test.stat)
+            resultFis <- runTest(GOdata, algorithm = "classic", statistic = "fisher")
+            
+            allRes <- GenTable(GOdata, classic = resultFis,
+                               ranksOf = "classic", topNodes = 100)#, orderBy = "weight")
+            allRes <- allRes[allRes$classic < 0.05,]
+            allRes$Genes <- sapply(allRes$GO.ID, FUN = getSigInTerm, godata = GOdata)
+                                
+            write.table(allRes, paste0("groups/", g,"_", ont, "_topGO.txt"),sep="\t")
+            
+        }
+    }
 }
 
 ######################################
-#total <- total[ abs(total$mrnafc) > TH |
-#                abs(total$protfc) > TH,]
-
-#plot(total$mrnafc, total$protfc, pch = 19, col = total$group)
-p <- ggplot(total, aes(x=protfc, y=mrnafc, colour = group))
-p <- p + geom_point(size  = 3)
-p <- p + geom_hline()
-p <- p + geom_vline()
-ggsave("plots/groups.png", p)
-print(p)
-
-
-tmp <- total[, c("Gene","mrnafc", "protfc", "group")]
-tmp <- na.omit(tmp)
-tmpm <- lm(mrnafc ~ protfc, data = tmp)
-p <- ggplotRegression(tmpm)
-ggsave("plots/mrna_prot.png", p)
-print(p)
-
-#backgrpond
-
 #IDA
 
 ida <- read.table("ida_by_spectra.csv", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
@@ -330,13 +398,20 @@ empai$empaipv <- apply(empai, 1, tst, PN_SAMPLES, PP_SAMPLES)
 empai_all <- empai
 empai <- empai[empai$empaipv < EMPAI_PV_REQ, ]   # CHECK IT !!!!
 
+otab <- empai_all[,c("Gene", "PP", "PN", "empaifc", "empaipv")]
+otab <- otab[!(otab$PP == 0 & otab$PN == 0),]
+otab <- rename(otab, c("PP" = "PPempai", "PN" = "PNempai"))
+otab <- merge(otab, total, by = "Gene", all.x = TRUE)
+write.table(otab, "plots/empai_mrna_swath.csv", sep="\t", quote = FALSE, row.names = FALSE)
+
 
 tmp <- mrna[, c("Gene", "mrnafc")]
 tmp <- merge(tmp, empai_all[, c("Gene", "empaifc")], by = "Gene")
-tmp <- na.omit(tmp)
-tmp <- tmp[is.finite(tmp$empaifc),]
+tmp <- tmp[is.finite(tmp$mrnafc)&is.finite(tmp$empaifc),]
 tmpm <- lm(mrnafc ~ empaifc, data = tmp)
 p <- ggplotRegression(tmpm)
+p <- p + xlab(expression(log [1.4]~(protein~EMPAI~fold~change)))
+p <- p + ylab(expression(log [2]~(transcript~fold~change)))
 ggsave("plots/mrna_empai.png", p)
 print(p)
 
@@ -347,6 +422,8 @@ tmp <- na.omit(tmp)
 tmp <- tmp[is.finite(tmp$empaifc) & is.finite(tmp$protfc),]
 tmpm <- lm(empaifc ~ protfc, data = tmp)
 p <- ggplotRegression(tmpm)
+p <- p + xlab(expression(log [1.4]~(protein~SWATH~fold~change)))
+p <- p + ylab(expression(log [1.4]~(protein~EMPAI~fold~change)))
 ggsave("plots/empai_prot.png", p)
 print(p)
 # Pathways
