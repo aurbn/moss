@@ -390,7 +390,7 @@ for (g in levels(total$group))
             allRes <- allRes[allRes$classic < 0.05,]
             allRes$Genes <- sapply(allRes$GO.ID, FUN = getSigInTerm, godata = GOdata)
                                 
-            write.table(allRes, paste0("groups/", g,"_", ont, "_topGO.txt"),sep="\t")
+            write.table(allRes, paste0("groups/", g,"_", ont, "_topGO.txt"), sep="\t", row.names = FALSE)
             
         }
     }
