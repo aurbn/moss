@@ -251,7 +251,7 @@ total$group <- as.factor(apply(total[,c("mrnafc", "protfc", "mrnapv","protpv")],
 total <- merge(total, id_table, by = "Gene", all.x = TRUE)
 total <- unique(total)
 
-
+dir.create("groups", showWarnings = FALSE)
 tbl <- with(warpbreaks, table(substr(total$group, 1, 1), substr(total$group, 2, 2),
                               dnn = c("MRNA", "SWATH")))
 write.ftable(ftable(tbl),file = "groups/table.txt", sep = '\t', quote = FALSE)
@@ -306,7 +306,6 @@ if (ANN_METHOD == "david")
     }
 }
 
-dir.create("groups", showWarnings = FALSE)
 for (g in levels(total$group))
 {
     print(paste0("Annotating ", g))
