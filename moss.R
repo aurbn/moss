@@ -7,6 +7,7 @@ PROT_BASE <- 1.4
 MRNA_TH <- 1
 PROT_TH <- 1
 MRNA_REQ_PV <- 0.05
+LOGNAME <- "plots/info.txt"
 
 SWATH_SOURCE <- "raw"   # "raw" or "processed" or "own" or "own2" or "split"
 NORM_SWATH <- FALSE #only for raw
@@ -67,6 +68,37 @@ group <- function(mrna, prot, mrnapv, protpv)
         p <- '0'
     
     paste0(m, p)
+}
+
+gdesk <- function(s,what = NULL)
+{
+    cs <- c(substr(s, 1, 1), substr(s, 2, 2))
+    if (what == "m")
+    {
+        if ("m" %in% cs)
+        {
+            return("mrnaPP < mrnaPN")
+        } else if ("M" %in% cs)
+        {
+            return("mrnaPP > mrnaPN")
+        } else
+        {
+            return("mrnaPP = mrnaPN")
+        }
+    } else if (what == "p")
+    {
+        if ("p" %in% cs)
+        {
+            return("protPP < protPN")
+        } else if ("P" %in% cs)
+        {
+            return("protPP > protPN")
+        } else
+        {
+            return("protPP = protPN")
+        }
+    } 
+    stop("Wrong what!")
 }
 
 tst <- function(row, k, e)
@@ -223,8 +255,16 @@ if (SWATH_SOURCE == "processed")
 prot$Gene <- sapply(strsplit(prot$Gene, split = '\\.'), "[", 1)
 prot <- aggregate(. ~ Gene, data = prot, FUN = sum)
 prot$protfc <- log(prot$protPPtoPN, base = PROT_BASE)
+write(paste(nrow(prot), "Quntified (SWATH) proteins"), LOGNAME, append=T)
 
-write.table(prot, "plots/swathDEP.txt", sep="\t", quote = FALSE, row.names = FALSE)
+prot_dep <- prot
+prot_dep <- rename(prot_dep, c("protfc" = "logprotfc"))
+write.table(prot_dep, "plots/swathALL.txt", sep="\t", quote = FALSE, row.names = FALSE)
+prot_dep <- subset(prot_dep, abs(logprotfc) > 1)
+prot_dep <- subset(prot_dep, protpv < 0.05)
+prot_dep <- rename(prot_dep, c("protfc" = "logprotfc"))
+write.table(prot_dep, "plots/swathDEP.txt", sep="\t", quote = FALSE, row.names = FALSE)
+write(paste(nrow(prot_dep), "differentialy expressed (SWATH) proteins"), LOGNAME, append=T)
 
 total <- merge(mrna[,c("Gene", "mrnaPPtoPN", "mrnafc", "mrnapv", "PP", "PN")], 
                prot[, c("Gene", "protPPtoPN", "protfc","protpv", "PP", "PN")], by = "Gene" )#, all.y = TRUE)
@@ -251,13 +291,20 @@ total$group <- as.factor(apply(total[,c("mrnafc", "protfc", "mrnapv","protpv")],
 
 total <- merge(total, id_table, by = "Gene", all.x = TRUE)
 total <- unique(total)
+write(paste(nrow(total), "Quantified mRNA and SWATH genes"), LOGNAME, append=T)
+
 
 dir.create("groups", showWarnings = FALSE)
 tbl <- with(warpbreaks, table(substr(total$group, 1, 1), substr(total$group, 2, 2),
                               dnn = c("MRNA", "SWATH")))
-write.ftable(ftable(tbl),file = "groups/table.txt", sep = '\t', quote = FALSE)
+colnames(tbl) <- c("PP=PN", "PP<PN", "PP>PN")
+rownames(tbl) <- c("PP=PN", "PP<PN", "PP>PN")
+write.ftable(ftable(tbl),file = "plots/table.txt", sep = '\t', quote = FALSE)
 
-write.table(total, "plots/mrna_swath.txt", sep="\t", quote = FALSE, row.names = FALSE)
+total_ <- total
+total_$mRNA <- sapply(total_$group, gdesk, what="m")
+total_$SWATH <- sapply(total_$group, gdesk, what="p")
+write.table(total_, "plots/mrna_swath_all.txt", sep="\t", quote = FALSE, row.names = FALSE)
 
 p <- ggplot(total, aes(x=protfc, y=mrnafc, colour = group))
 p <- p + geom_point(size  = 3)
@@ -390,7 +437,7 @@ for (g in levels(total$group))
             allRes <- allRes[allRes$classic < 0.05,]
             allRes$Genes <- sapply(allRes$GO.ID, FUN = getSigInTerm, godata = GOdata)
                                 
-            write.table(allRes, paste0("groups/", g,"_", ont, "_topGO.txt"), sep="\t", row.names = FALSE)
+            write.table(allRes, paste0("groups/", g,"_", ont, "_topGO.txt"),sep="\t")
             
         }
     }
@@ -446,10 +493,13 @@ if(SCALE_EMPAI == TRUE)
 
 
 otab <- empai_all[,c("Gene", "PP", "PN", "empaifc", "empaipv")]
+otab <- empai_all[,c("Gene", "PP", "PN", "empaiPPtoPN", "empaifc", "empaipv")]
 otab <- otab[!(otab$PP == 0 & otab$PN == 0),]
 otab <- rename(otab, c("PP" = "PPempai", "PN" = "PNempai"))
 otab <- merge(otab, total, by = "Gene", all.x = TRUE)
 write.table(otab, "plots/empai_mrna_swath.csv", sep="\t", quote = FALSE, row.names = FALSE)
+otab <- rename(otab, c("empaifc" = "logempaifc", "mrnafc" = "logmrnafc", "protfc" = "logprotfc"))
+write.table(otab, "plots/empai_mrna_swath.txt", sep="\t", quote = FALSE, row.names = FALSE)
 
 
 tmp <- mrna[, c("Gene", "mrnafc")]
@@ -506,10 +556,9 @@ data$Source <- ifelse(data$ida, "emPAI", "SWATH")
 
 library(pathview)
 
-d <- data$fc / (3*sd(data$fc))
+d <- data$fc
 names(d) <- data$pd_id
 catched <- c()
-
 
 dir.create("pathways", showWarnings = FALSE)
 dir.create("pathways_tmp", showWarnings = FALSE)
@@ -533,6 +582,7 @@ for (p in PATHWAYS)
         t_ <- merge(t_, data[,c("Gene", "pd_id", "fc", "Source")], by = "pd_id")
         t_ <- t_[,c("Gene", "pd_id", "fc", "Source", "Orthology", "Definition")]
         t_ <- unique(t_)
+        t_ <- rename(t_, c("fc", "logfc"))
         write.table(t_, sep = "\t", quote = FALSE, row.names = FALSE,
                     file = paste0(fname, ".txt"))
         file.rename(from = paste0(KEGG_SP, p, ".kegg.png"),
