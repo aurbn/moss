@@ -554,7 +554,7 @@ data$Source <- ifelse(data$ida, "emPAI", "SWATH")
 
 library(pathview)
 
-d <- data$fc
+d <- data$fc / (3*sd(data$fc))
 names(d) <- data$pd_id
 catched <- c()
 
