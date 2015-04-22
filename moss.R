@@ -492,12 +492,10 @@ if(SCALE_EMPAI == TRUE)
 
 
 
-otab <- empai_all[,c("Gene", "PP", "PN", "empaifc", "empaipv")]
 otab <- empai_all[,c("Gene", "PP", "PN", "empaiPPtoPN", "empaifc", "empaipv")]
 otab <- otab[!(otab$PP == 0 & otab$PN == 0),]
 otab <- rename(otab, c("PP" = "PPempai", "PN" = "PNempai"))
 otab <- merge(otab, total, by = "Gene", all.x = TRUE)
-write.table(otab, "plots/empai_mrna_swath.csv", sep="\t", quote = FALSE, row.names = FALSE)
 otab <- rename(otab, c("empaifc" = "logempaifc", "mrnafc" = "logmrnafc", "protfc" = "logprotfc"))
 write.table(otab, "plots/empai_mrna_swath.txt", sep="\t", quote = FALSE, row.names = FALSE)
 
