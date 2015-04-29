@@ -22,6 +22,7 @@ EMPAI_PV_REQ <- 0.05
 
 ##### ANNOTATION PARAMETERS #####
 ANN_METHOD <- "topGO" #  # "david" or "topGO"
+PLASTID_GO <- "GO:0009536"
 USE_PV_EMPAI <- TRUE
 DAVID_REQ_PV <- 0.05
 KEGG_SP <- "ppp"
@@ -258,13 +259,6 @@ prot$protfc <- log(prot$protPPtoPN, base = PROT_BASE)
 write(paste(nrow(prot), "Quntified (SWATH) proteins"), LOGNAME, append=T)
 
 prot_dep <- prot
-prot_dep <- rename(prot_dep, c("protfc" = "logprotfc"))
-write.table(prot_dep, "plots/swathALL.txt", sep="\t", quote = FALSE, row.names = FALSE)
-prot_dep <- subset(prot_dep, abs(logprotfc) > 1)
-prot_dep <- subset(prot_dep, protpv < 0.05)
-prot_dep <- rename(prot_dep, c("protfc" = "logprotfc"))
-write.table(prot_dep, "plots/swathDEP.txt", sep="\t", quote = FALSE, row.names = FALSE)
-write(paste(nrow(prot_dep), "differentialy expressed (SWATH) proteins"), LOGNAME, append=T)
 
 total <- merge(mrna[,c("Gene", "mrnaPPtoPN", "mrnafc", "mrnapv", "PP", "PN")], 
                prot[, c("Gene", "protPPtoPN", "protfc","protpv", "PP", "PN")], by = "Gene" )#, all.y = TRUE)
@@ -442,6 +436,20 @@ for (g in levels(total$group))
         }
     }
 }
+#### WRITE TABLES #####     
+prot_dep <- rename(prot_dep, c("protfc" = "logprotfc"))
+geneID2GO_CC <- annFUN.GO2genes(whichOnto = "CC", GO2genes = GO2geneID)
+geneID2GO_CC <- inverseList(geneID2GO_CC)
+geneID2GO_BP <- annFUN.GO2genes(whichOnto = "BP", GO2genes = GO2geneID)
+geneID2GO_BP <- inverseList(geneID2GO_BP)
+prot_dep$isPlastid <- sapply(prot_dep$Gene, function(x) PLASTID_GO %in% geneID2GO[[x]])
+prot_dep$GO_CC <- sapply(prot_dep$Gene, function(x) paste(geneID2GO_CC[[x]], collapse = ", "))
+prot_dep$GO_BP <- sapply(prot_dep$Gene, function(x) paste(geneID2GO_BP[[x]], collapse = ", "))
+write.table(prot_dep, "plots/swathALL.txt", sep="\t", quote = FALSE, row.names = FALSE)
+prot_dep <- subset(prot_dep, abs(logprotfc) > 1)
+prot_dep <- subset(prot_dep, protpv < 0.05)
+write.table(prot_dep, "plots/swathDEP.txt", sep="\t", quote = FALSE, row.names = FALSE)
+write(paste(nrow(prot_dep), "differentialy expressed (SWATH) proteins"), LOGNAME, append=T)
 
 ######################################
 #IDA
