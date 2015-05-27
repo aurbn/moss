@@ -1,6 +1,12 @@
 require(ggplot2)
 require(KEGGREST)
 require(plyr)
+require(GOSemSim)
+require(topGO)
+require(cluster)
+require(GO.db)
+require(gplots)
+
 ####### Parameters #######
 MRNA_BASE <- 2
 PROT_BASE <- 1.4
@@ -141,6 +147,30 @@ kegg_get <- function(id, key)
     t
 }
 
+gosim <- function(golist, ont = "BP")
+{
+    #golist <- golist[sapply(golist, length) != 0]
+    m <- matrix(nrow = length(golist), ncol = length(golist))
+    rownames(m) <- names(golist)
+    colnames(m) <- names(golist)
+    for (i in 1:length(golist))
+        for  (j in 1:(length(golist)))
+        {
+            if(length(golist[[i]]) == 0 && length(golist[[j]]) == 0)
+                t_ <- 1
+            else if (length(golist[[i]]) == 0 || length(golist[[j]]) == 0)
+                t_ <- 0
+            else
+                t_ <- mgoSim(golist[[i]], golist[[j]], ont = ont,
+                                 organism = "arabidopsis", combine = "avg")
+            
+            m[i,j] <- t_
+            m[j,i] <- t_
+        }
+        
+    return(m)
+}
+
 dir.create("plots", showWarnings = FALSE)
 
 mrna_old <- read.csv("transcripts.csv", sep = '\t', header = TRUE, stringsAsFactors = FALSE)
@@ -252,18 +282,66 @@ if (SWATH_SOURCE == "processed")
     stop("Wrong SWATH source!")
 }
 
+########## READ TAIR ######
+require(org.At.tair.db)
+tair_names_ <- org.At.tairSYMBOL
+keys_ <- mappedkeys(tair_names_)
+symbols_ <- sapply(as.list(tair_names_[keys_]),
+                   function(q) paste(unlist(q), collapse = ","))
+tair_names <- data.frame(TAIR = keys_, T_SYM = symbols_, stringsAsFactors = FALSE)
+
+
+tair_desc <- org.At.tairGENENAME
+tair_desc_keys <- mappedkeys(tair_desc)
+tair_desc <- sapply(as.list(tair_desc[tair_desc_keys]), function(q) q[[1]][1])
+tair_desc <- tair_desc[!duplicated(names(tair_desc))]
+tair_desc <- data.frame(TAIR = names(tair_desc), T_DESC = tair_desc, 
+                         stringsAsFactors = FALSE)
+
+
+tairs <- read.csv("./pp_tair.txt", sep = "\t", header = FALSE)
+colnames(tairs) <- c("Gene", "TAIR", "ident", "ev")
+rownames(tairs) <- NULL
+tairs <- subset(tairs, ident > 30 & ev < 0.05)
+tairs <- tairs[order(tairs$Gene, -tairs$ident, tairs$ev),]
+tairs <- tairs[!duplicated(tairs),]
+#tairs <- merge(tairs, tair_names, by = "TAIR", all.x = TRUE)
+#tairs <- merge(tairs, tair_desc, by = "TAIR", all.x = TRUE)
+
+
+#tairs$T_NAME <- sapply(tairs$TAIR, function (q) 
+#        paste(unlist(as.list(tair_names[q])))
+#    )
+
+tairs_one <- tairs[!duplicated(tairs$Gene),]
+tairs_one <- subset(tairs_one, select = c("Gene", "TAIR"))
+tairs_one <- merge(tairs_one, tair_names, by = "TAIR", all.x = TRUE)
+tairs_one <- merge(tairs_one, tair_desc, by = "TAIR", all.x = TRUE)
+
+
+################
 #prot <- prot[grepl("^Pp.+", prot$Gene),]
 prot$Gene <- sapply(strsplit(prot$Gene, split = '\\.'), "[", 1)
 prot <- aggregate(. ~ Gene, data = prot, FUN = sum)
 prot$protfc <- log(prot$protPPtoPN, base = PROT_BASE)
 write(paste(nrow(prot), "Quntified (SWATH) proteins"), LOGNAME, append=T)
 
-prot_dep <- prot
+
 
 total <- merge(mrna[,c("Gene", "mrnaPPtoPN", "mrnafc", "mrnapv", "PP", "PN")], 
                prot[, c("Gene", "protPPtoPN", "protfc","protpv", "PP", "PN")], by = "Gene" )#, all.y = TRUE)
 total <- rename(total,c("PP.x" = "PPmrna", "PN.x" = "PNmrna", "PP.y" = "PPswath", "PN.y" = "PNswath"))
 total <- unique(total)
+
+prot_dep <- prot
+prot_dep <- rename(prot_dep, c("PN" = "protPN", "PP" = "protPP"))
+prot_dep <- merge(prot_dep, mrna[,c("Gene", "mrnaPPtoPN",
+                                    "mrnafc", "mrnapv", "PP", "PN")],
+                                by = "Gene", all.x = TRUE )
+prot_dep <- rename(prot_dep, c("PN" = "mrnaPN", "PP" = "mrnaPP", "mrnafc" = "logmrnafc"))
+#prot_dep <- merge(prot_dep, tairs_one, by = "Gene", all.x = TRUE)
+
+
 
 
 totalpp <- total[,c("Gene", "PPmrna", "PPswath")]
@@ -436,19 +514,86 @@ for (g in levels(total$group))
         }
     }
 }
-#### WRITE TABLES #####     
+#### WRITE TABLES #####    
+
+prot_dep <- merge(prot_dep, tairs_one, by = "Gene", all.x = TRUE)
 prot_dep <- rename(prot_dep, c("protfc" = "logprotfc"))
 geneID2GO_CC <- annFUN.GO2genes(whichOnto = "CC", GO2genes = GO2geneID)
 geneID2GO_CC <- inverseList(geneID2GO_CC)
 geneID2GO_BP <- annFUN.GO2genes(whichOnto = "BP", GO2genes = GO2geneID)
 geneID2GO_BP <- inverseList(geneID2GO_BP)
-prot_dep$isPlastid <- sapply(prot_dep$Gene, function(x) PLASTID_GO %in% geneID2GO[[x]])
+PLASTID_GOs  <- c(GOCCOFFSPRING[[PLASTID_GO]], PLASTID_GO)
+prot_dep$isPlastid <- sapply(prot_dep$Gene, function(x) any(geneID2GO[[x]] %in% PLASTID_GOs))
 prot_dep$GO_CC <- sapply(prot_dep$Gene, function(x) paste(geneID2GO_CC[[x]], collapse = ", "))
 prot_dep$GO_BP <- sapply(prot_dep$Gene, function(x) paste(geneID2GO_BP[[x]], collapse = ", "))
+
+
+require(fpc)
+require(gclus)
+bp_list <- sapply(prot_dep$Gene, function(x) geneID2GO_BP[[x]])
+names(bp_list) <- prot_dep$Gene
+bp_mx <- gosim(bp_list)
+cls <- hclust(as.dist(1-bp_mx), "average")
+cls <- reorder(cls, 1-bp_mx)
+ct <- cut()
+plot(cls, hang = -1)
+pk <- pam(1-bp_mx, 3)
+#pk1 <- pamk(1-bp_mx, krange=2:10, criterion="ch", usepam=TRUE, diss=TRUE)
+prot_dep$cluster <- pk$clustering
+prot_dep_hmap <- prot_dep[order(prot_dep$cluster, prot_dep$logprotfc,
+                                prot_dep$logmrnafc),]
+# cl_labels <- lapply(unique(prot_dep_hmap$cluster), function(q) {
+#         t <- lapply(subset(prot_dep_hmap, cluster == q, Gene), 
+#                     function(qq) qq)
+#         t <- unique(c(t))
+#         names(t) <- q
+#         retunr(t)
+#     })
+hmap_sep = which(!duplicated(prot_dep_hmap$cluster))
+#heatmap(cbind(prot_dep_hmap$protPPtoPN, prot_dep_hmap$mrnaPPtoPN))
+#x11()
+my_palette <- colorRampPalette(c("green", "black", "red"))(n = 1000)
+hmap <- as.matrix(cbind(prot_dep_hmap$logprotfc, prot_dep_hmap$logmrnafc))
+hmap[!is.finite(hmap)] <- 0
+colnames(hmap) <- c("Protein", "mRNA")
+png("plots/hmap.png", height = 1000)
+heatmap.2(hmap,
+          cexRow = 2,
+#           labRow = c(rep("", 100), "1",
+#                      rep("", 120), "2",
+#                      rep("", 60),  "3",
+#                      rep("", 100), "4",
+#                      rep("", 100), "5"),
+labRow = c(rep("", 100), "1",
+           rep("", 180), "2",
+           rep("", 140),  "3"),
+
+          Rowv= FALSE, #as.dendrogram(hc),
+          Colv=FALSE,
+          #cexRow=1,
+          cexCol=1,
+          dendrogram=NULL,
+          scale="column",
+          #labRow = FALSE,
+          rowsep = hmap_sep,
+          sepwidth=c(1, 1),
+          trace="none",
+          density.info="none",
+          key=FALSE,
+          symkey = TRUE,
+          col=my_palette,
+          margins = c(5,5))
+dev.off()
+
+prot_dep <- prot_dep[, c("Gene",  "protPP", "protPN", "protPPtoPN", "logprotfc", "protpv", 
+                         "mrnaPP", "mrnaPN", "mrnaPPtoPN", "logmrnafc",  "mrnapv",
+                         "isPlastid", "GO_CC", "GO_BP", "TAIR", "T_SYM", "T_DESC" )]
+prot_dep <- rename(prot_dep, c("TAIR" = "TAIR homolog", "T_SYM" = "Homolog symbol", 
+                               "T_DESC" = "Homolog description"))
 write.table(prot_dep, "plots/swathALL.txt", sep="\t", quote = FALSE, row.names = FALSE)
-prot_dep <- subset(prot_dep, abs(logprotfc) > 1)
-prot_dep <- subset(prot_dep, protpv < 0.05)
-write.table(prot_dep, "plots/swathDEP.txt", sep="\t", quote = FALSE, row.names = FALSE)
+prot_dep_filt <- subset(prot_dep, abs(logprotfc) > 1)
+prot_dep_filt <- subset(prot_dep_filt, protpv < 0.05)
+write.table(prot_dep_filt, "plots/swathDEP.txt", sep="\t", quote = FALSE, row.names = FALSE)
 write(paste(nrow(prot_dep), "differentialy expressed (SWATH) proteins"), LOGNAME, append=T)
 
 ######################################
@@ -562,7 +707,7 @@ data$Source <- ifelse(data$ida, "emPAI", "SWATH")
 
 library(pathview)
 
-d <- data$fc / (3*sd(data$fc))
+d <- data$fc# / (3*sd(data$fc))
 names(d) <- data$pd_id
 catched <- c()
 
@@ -571,13 +716,20 @@ dir.create("pathways_tmp", showWarnings = FALSE)
 for (p in PATHWAYS)
 {
     pv.out <- pathview(gene.data = d, pathway.id = p, gene.idtype = "KEGG",
-                       kegg.dir = "pathways_tmp", species = KEGG_SP, out.suffix = "kegg")
+                       kegg.dir = "pathways_tmp", species = KEGG_SP, out.suffix = "kegg",)
     if(length(pv.out) != 2)
         next
 
     ok_ <- !is.na(pv.out$plot.data.gene$mol.data)
     fname = paste0("pathways/", sprintf("%02i_", sum(ok_)), KEGG_SP, p, ".kegg" )
     keggs <- unique(pv.out$plot.data.gene[ok_,]$kegg.names)
+    
+    mm = max(abs(d[names(d) %in% keggs]))
+    
+    pv.out <- pathview(gene.data = d, pathway.id = p, gene.idtype = "KEGG",
+                       kegg.dir = "pathways_tmp", species = KEGG_SP, out.suffix = "kegg",
+                       limit=list(gene=c(-mm, mm), cpd=1))
+    
 
     if(length(keggs) > 0)
     {
@@ -588,7 +740,7 @@ for (p in PATHWAYS)
         t_ <- merge(t_, data[,c("Gene", "pd_id", "fc", "Source")], by = "pd_id")
         t_ <- t_[,c("Gene", "pd_id", "fc", "Source", "Orthology", "Definition")]
         t_ <- unique(t_)
-        t_ <- rename(t_, c("fc", "logfc"))
+        t_ <- rename(t_, c("fc" = "logfc"))
         write.table(t_, sep = "\t", quote = FALSE, row.names = FALSE,
                     file = paste0(fname, ".txt"))
         file.rename(from = paste0(KEGG_SP, p, ".kegg.png"),
