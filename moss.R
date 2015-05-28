@@ -173,6 +173,7 @@ gosim <- function(golist, ont = "BP")
 
 dir.create("plots", showWarnings = FALSE)
 
+########## READ MRNA #################
 mrna_old <- read.csv("transcripts.csv", sep = '\t', header = TRUE, stringsAsFactors = FALSE)
 mrna <- read.csv("gene_exp.diff", sep = '\t', header = TRUE, stringsAsFactors = FALSE)
 mrna <- mrna[ mrna$sample_1 %in% c("Protonema", "Protoplasts") &
@@ -203,7 +204,7 @@ mrna$mrnaPPtoPN <- mrna$PP/mrna$PN
 mrna <- na.omit(mrna)  # Fix it
 mrna$mrnafc <- log(mrna$mrnaPPtoPN, base = MRNA_BASE)
 
-
+######### READ SWATH #############
 if (SWATH_SOURCE == "processed")
 {
     prot <- read.table("proteins.csv", sep = '\t', header = TRUE, stringsAsFactors = FALSE)
@@ -281,6 +282,17 @@ if (SWATH_SOURCE == "processed")
 {
     stop("Wrong SWATH source!")
 }
+
+prot$tmp <- NA
+prot$tmp <- gsub("[^\\|]+\\|([^\\|]+)\\|.+", "\\1", prot$Gene)
+prot$Gene <- prot$tmp
+prot$tmp <- NULL
+uniprot2kegg <- read.csv("./uniprot2kegg.txt", sep = "\t", header = TRUE, 
+                         stringsAsFactors = FALSE)
+uniprot2kegg_ <- subset(uniprot2kegg, Entry %in% prot$Gene, c(Entry, KEGG))
+prot <- merge(prot, uniprot2kegg_, by.x = "Gene", by.y = "Entry", all.x = TRUE)
+prot$Gene <- ifelse(is.na(prot$KEGG), yes = prot$Gene, no = prot$KEGG)
+prot$KEGG <- NULL
 
 ########## READ TAIR ######
 require(org.At.tair.db)
