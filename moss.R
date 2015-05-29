@@ -539,17 +539,74 @@ prot_dep$isPlastid <- sapply(prot_dep$Gene, function(x) any(geneID2GO[[x]] %in% 
 prot_dep$GO_CC <- sapply(prot_dep$Gene, function(x) paste(geneID2GO_CC[[x]], collapse = ", "))
 prot_dep$GO_BP <- sapply(prot_dep$Gene, function(x) paste(geneID2GO_BP[[x]], collapse = ", "))
 
+prot4cls <- prot_dep
 
+prot_dep <- prot_dep[, c("Gene",  "protPP", "protPN", "protPPtoPN", "logprotfc", "protpv", 
+                         "mrnaPP", "mrnaPN", "mrnaPPtoPN", "logmrnafc",  "mrnapv",
+                         "isPlastid", "GO_CC", "GO_BP", "TAIR", "T_SYM", "T_DESC" )]
+prot_dep <- rename(prot_dep, c("TAIR" = "TAIR homolog", "T_SYM" = "Homolog symbol", 
+                               "T_DESC" = "Homolog description"))
+write.table(prot_dep, "plots/swathALL.txt", sep="\t", quote = FALSE, row.names = FALSE)
+prot_dep_filt <- subset(prot_dep, abs(logprotfc) > 1)
+prot_dep_filt <- subset(prot_dep_filt, protpv < 0.05)
+write.table(prot_dep_filt, "plots/swathDEP.txt", sep="\t", quote = FALSE, row.names = FALSE)
+write(paste(nrow(prot_dep), "differentialy expressed (SWATH) proteins"), LOGNAME, append=T)
+
+######## GO CLUSTERING AND HEATMAP ####################
 require(fpc)
 require(gclus)
-bp_list <- sapply(prot_dep$Gene, function(x) geneID2GO_BP[[x]])
-names(bp_list) <- prot_dep$Gene
-bp_mx <- gosim(bp_list)
-cls <- hclust(as.dist(1-bp_mx), "average")
-cls <- reorder(cls, 1-bp_mx)
-ct <- cut()
-plot(cls, hang = -1)
-pk <- pam(1-bp_mx, 3)
+
+###### clustering go terms#####
+prot4bp <- subset(prot4cls, GO_BP != "")$Gene
+bp_list <- stack(sapply(prot_dep$Gene, function(x) geneID2GO_BP[[x]]))$values
+bp_list <- unique(bp_list)
+go_mx <- matrix(nrow = length(bp_list), ncol=length(prot4bp))
+rownames(go_mx) <- bp_list 
+colnames(go_mx) <- prot4bp
+GO_BP2geneID <- annFUN.GO2genes(whichOnto = "BP", GO2genes = GO2geneID)
+for (x in bp_list) go_mx[x,] <-  as.integer(prot4bp %in% GO_BP2geneID[[x]])
+#require(scrime)
+
+#go_mx_dist <- dist(go_mx, method = "binary")
+#go_mx_clust <- hclust(go_mx_dist)
+
+
+#semantic distance
+go_mx_dist <- 1-termSim(bp_list, bp_list,organism = "arabidopsis" )
+
+go_mx_clust <- hclust(as.dist(go_mx_dist))
+plot(go_mx_clust, hang=-1, )
+clsh <- cutree(go_mx_clust, k=20)
+require(sparcl)
+ColorDendrogram(go_mx_clust, y = clsh, labels = names(clsh), main = "My Simulated Data", 
+                branchlength = 80 )
+
+cls_res <- data.frame(GO = names(clsh), cluster = clsh, stringsAsFactors = FALSE)
+terms <- Term(GOTERM)
+cls_res$Description <- terms[cls_res$GO]
+GoClFname = "./GO_clusters.txt"
+unlink(GoClFname)
+for (cl in sort(unique(cls_res$cluster)))
+{
+    write(sprintf("Cluster %i:\n", cl), GoClFname, append = TRUE)
+    write.table(subset(cls_res, cluster == cl, c(GO, Description)),
+                GoClFname, append = TRUE, row.names = FALSE, quote = FALSE, sep = "\t")
+    write("\n\n", GoClFname, append = TRUE)
+}
+
+fit <- cmdscale(go_mx_dist, eig = TRUE, k = 2)
+x <- fit$points[, 1]
+y <- fit$points[, 2]
+l <- dimnames(fit$points)[[1]]
+plot(x, y, pch = 19, col = clsh)#$cluster)#, xlim = c(-.05,.0), ylim = c(-.1,.1))
+text(x, y, labels=l, cex= 0.7, pos=3)
+
+
+
+
+###TRASH
+#plot(cls, hang = -1)
+#pk <- pam(1-bp_mx, 3)
 #pk1 <- pamk(1-bp_mx, krange=2:10, criterion="ch", usepam=TRUE, diss=TRUE)
 prot_dep$cluster <- pk$clustering
 prot_dep_hmap <- prot_dep[order(prot_dep$cluster, prot_dep$logprotfc,
@@ -571,15 +628,15 @@ colnames(hmap) <- c("Protein", "mRNA")
 png("plots/hmap.png", height = 1000)
 heatmap.2(hmap,
           cexRow = 2,
-#           labRow = c(rep("", 100), "1",
-#                      rep("", 120), "2",
-#                      rep("", 60),  "3",
-#                      rep("", 100), "4",
-#                      rep("", 100), "5"),
-labRow = c(rep("", 100), "1",
-           rep("", 180), "2",
-           rep("", 140),  "3"),
-
+          #           labRow = c(rep("", 100), "1",
+          #                      rep("", 120), "2",
+          #                      rep("", 60),  "3",
+          #                      rep("", 100), "4",
+          #                      rep("", 100), "5"),
+          labRow = c(rep("", 100), "1",
+                     rep("", 180), "2",
+                     rep("", 140),  "3"),
+          
           Rowv= FALSE, #as.dendrogram(hc),
           Colv=FALSE,
           #cexRow=1,
@@ -596,17 +653,6 @@ labRow = c(rep("", 100), "1",
           col=my_palette,
           margins = c(5,5))
 dev.off()
-
-prot_dep <- prot_dep[, c("Gene",  "protPP", "protPN", "protPPtoPN", "logprotfc", "protpv", 
-                         "mrnaPP", "mrnaPN", "mrnaPPtoPN", "logmrnafc",  "mrnapv",
-                         "isPlastid", "GO_CC", "GO_BP", "TAIR", "T_SYM", "T_DESC" )]
-prot_dep <- rename(prot_dep, c("TAIR" = "TAIR homolog", "T_SYM" = "Homolog symbol", 
-                               "T_DESC" = "Homolog description"))
-write.table(prot_dep, "plots/swathALL.txt", sep="\t", quote = FALSE, row.names = FALSE)
-prot_dep_filt <- subset(prot_dep, abs(logprotfc) > 1)
-prot_dep_filt <- subset(prot_dep_filt, protpv < 0.05)
-write.table(prot_dep_filt, "plots/swathDEP.txt", sep="\t", quote = FALSE, row.names = FALSE)
-write(paste(nrow(prot_dep), "differentialy expressed (SWATH) proteins"), LOGNAME, append=T)
 
 ######################################
 #IDA
