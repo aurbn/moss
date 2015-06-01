@@ -37,7 +37,7 @@ ALL_PATHWAYS <- scan("all_kegg.txt", what = character())
 PATHWAYS <- ALL_PATHWAYS
 USE_PV_EMPAI <- FALSE
 SCALE_EMPAI <- FALSE
-TAIR_ANN <- "uniprot" # uniprot or orgdb
+TAIR_ANN <- "tair" # uniprot or orgdb or tair
 #http://www.kegg.jp/kegg-bin/search_pathway_text?map=ppp&keyword=&mode=1&viewImage=true
 
 #USE_PV_EMPAI <- FALSE
@@ -317,10 +317,10 @@ cos_desc <- cos_desc[!duplicated(cos_desc$Gene), c("Gene", "value")]
 cos_desc <- rename(cos_desc, c("value" = "cosmoss_description"))
 
 ########## READ TAIR ######
-tairs <- read.csv("./pp_tair.txt", sep = "\t", header = FALSE)
+tairs <- read.csv("./pp_tair.txt", sep = "\t", header = FALSE, stringsAsFactors = FALSE)
 colnames(tairs) <- c("Gene", "TAIR", "ident", "ev")
 rownames(tairs) <- NULL
-tairs <- subset(tairs, ident > 30 & ev < 0.05)
+tairs <- subset(tairs, ident > 50 & ev < 0.05)
 tairs <- tairs[order(tairs$Gene, -tairs$ident, tairs$ev),]
 tairs <- tairs[!duplicated(tairs),]
 tairs_one <- tairs[!duplicated(tairs$Gene),]
@@ -349,11 +349,35 @@ if (TAIR_ANN == "orgdb")
 } else if (TAIR_ANN == "uniprot")
 {
     tairs_up <- read.csv2("./TAIR_uniprot.txt", sep ="\t", header = TRUE,
-                        stringsAsFactors = FALSE)
+                          stringsAsFactors = FALSE)
     tairs_up <- tairs_up[!duplicated(tairs_up$TAIR), c("TAIR", "T_SYM", 
-                                                   "T_DESC", "T_GO")]
+                                                       "T_DESC", "T_GO")]
     tairs_one <- merge(tairs_one, tairs_up, by = "TAIR", all.x  = TRUE)
     
+} else if (TAIR_ANN == "tair")
+{
+    if (file.exists("./tairs_one.txt"))
+    {
+        tairs_ta <- read.csv("./tairs_one.txt", sep = "\t", header = TRUE, 
+                              stringsAsFactors = FALSE)
+    } else {
+        tairs_ta <- read.csv("./tair_gene_aliases.txt", sep ="\t", header = TRUE,
+                             stringsAsFactors = FALSE)
+        names(tairs_ta) <- c("TAIR", "T_SYM", "T_DESC")
+        tmp1 <- aggregate(tairs_ta$T_SYM, by = list(tairs_ta$TAIR), 
+                          FUN = function(x) paste(unique(x[!grepl("^\\s+$|^$", x)]), 
+                                                  collapse = ", "))
+        names(tmp1) <- c("TAIR", "T_SYM")
+        tmp2 <- aggregate(tairs_ta$T_DESC, by = list(tairs_ta$TAIR), 
+                          FUN = function(x) paste(unique(x[!grepl("^\\s+$|^$", x)]), 
+                                                  collapse = ", "))
+        names(tmp2) <- c("TAIR", "T_DESC")
+        
+        tairs_ta <- merge(tmp1, tmp2, by = "TAIR", all = TRUE)
+        write.table(tairs_one, "./tairs_one.txt", sep = "\t", 
+                    quote = FALSE, row.names = FALSE)
+    }
+    tairs_one <-  merge(tairs_one, tairs_ta, by = "TAIR", all.x  = TRUE)
 } else {
     stop("Wrong tair annotation!")
 }
@@ -547,6 +571,16 @@ for (g in levels(total$group))
         }
     }
 }
+
+require(topGO)
+geneID2GO <- readMappings(file = "cosmoss_go_cast.txt")
+GO2geneID <- inverseList(geneID2GO)
+
+
+geneID2GO_TAIR <- readMappings(file = "tairGO_cast.txt")
+GO2geneID_TAIR <- inverseList(geneID2GO_TAIR)
+geneID2GO_CC_TAIR <- annFUN.GO2genes(whichOnto = "CC", GO2genes = GO2geneID_TAIR)
+geneID2GO_CC_TAIR <- inverseList(geneID2GO_CC_TAIR)
 #### WRITE TABLES #####    
 
 prot_dep <- merge(prot_dep, cos_names, by = "Gene", all.x = TRUE)
@@ -560,27 +594,40 @@ geneID2GO_BP <- inverseList(geneID2GO_BP)
 PLASTID_GOs  <- c(GOCCOFFSPRING[[PLASTID_GO]], PLASTID_GO)
 prot_dep$isPlastid <- sapply(prot_dep$Gene, function(x) 
     any(geneID2GO[[x]] %in% PLASTID_GOs))
-prot_dep$isPlastid_tair <- sapply(prot_dep$T_GO, function(x) 
-    any(unfold_gos(x) %in% PLASTID_GOs))
-prot_dep$isPlastid <- prot_dep$isPlastid | prot_dep$isPlastid_tair
-
 prot_dep$GO_CC <- sapply(prot_dep$Gene, function(x) paste(geneID2GO_CC[[x]], collapse = ", "))
 prot_dep$GO_BP <- sapply(prot_dep$Gene, function(x) paste(geneID2GO_BP[[x]], collapse = ", "))
+
+
+prot_dep$T_GO <-sapply(prot_dep$TAIR, function(x) 
+    paste(geneID2GO_CC_TAIR[[x]], collapse = ", "))
+prot_dep$isPlastid_tair <- sapply(prot_dep$TAIR, function(x) 
+    any(geneID2GO_TAIR[[x]] %in% PLASTID_GOs))
+prot_dep$isPlastid <- prot_dep$isPlastid | prot_dep$isPlastid_tair
+prot_dep$isPlastid <- ifelse(prot_dep$GO_CC == "" & prot_dep$T_GO == "",
+                             NA, prot_dep$isPlastid)
+prot_dep[grepl("^PhpapaCp", prot_dep$Gene), "isPlastid"] <- TRUE
+#<- ifelse(is.na(prot_dep$T_GO), NA, prot_dep$isPlastid)
 
 prot4cls <- prot_dep
 
 prot_dep <- prot_dep[, c("Gene",  "protPP", "protPN", "protPPtoPN", "logprotfc", "protpv", 
                          "mrnaPP", "mrnaPN", "mrnaPPtoPN", "logmrnafc",  "mrnapv",
+                         "cosmoss_name", "cosmoss_description",
                          "isPlastid", "GO_CC", "GO_BP",
                          "TAIR", "T_SYM", "T_DESC", "T_GO" )]
-prot_dep <- rename(prot_dep, c("TAIR" = "TAIR homolog", "T_SYM" = "Homolog symbol", 
-                               "T_DESC" = "Homolog description", "T_GO"= "TAIR GO"))
+prot_dep <- rename(prot_dep, c("cosmoss_name" = "Cosmoss name", 
+                               "cosmoss_description" = "Cosmoss description",
+                               "TAIR" = "TAIR homolog", "T_SYM" = "Homolog symbol", 
+                               "T_DESC" = "Homolog description", "T_GO"= "TAIR GO CC"))
 write.table(prot_dep, "plots/swathALL.txt", sep="\t", quote = FALSE, row.names = FALSE)
 prot_dep_filt <- subset(prot_dep, abs(logprotfc) > 1)
 prot_dep_filt <- subset(prot_dep_filt, protpv < 0.05)
 write.table(prot_dep_filt, "plots/swathDEP.txt", sep="\t", quote = FALSE, row.names = FALSE)
 write(paste(nrow(prot_dep), "differentialy expressed (SWATH) proteins"), LOGNAME, append=T)
 
+prot_dep_false <- subset(prot_dep, isPlastid == FALSE)
+write.table(prot_dep_false, "plots/swathNoPLastid.txt", sep="\t", 
+            quote = FALSE, row.names = FALSE)
 ######## GO CLUSTERING AND HEATMAP ####################
 require(fpc)
 require(gclus)
