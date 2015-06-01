@@ -37,10 +37,13 @@ ALL_PATHWAYS <- scan("all_kegg.txt", what = character())
 PATHWAYS <- ALL_PATHWAYS
 USE_PV_EMPAI <- FALSE
 SCALE_EMPAI <- FALSE
+TAIR_ANN <- "uniprot" # uniprot or orgdb
 #http://www.kegg.jp/kegg-bin/search_pathway_text?map=ppp&keyword=&mode=1&viewImage=true
 
 #USE_PV_EMPAI <- FALSE
 ##########################
+trim <- function (x) gsub("^\\s+|\\s+$", "", x)
+unfold_gos <- function(x) trim(strsplit(x, ";")[[1]])
 
 ggplotRegression <- function (fit, xname = NULL, yname = NULL, meth = "pearson") {
     ggplot(fit$model, aes_string(x = ifelse(is.null(xname), names(fit$model)[2], xname), 
@@ -293,6 +296,11 @@ uniprot2kegg_ <- subset(uniprot2kegg, Entry %in% prot$Gene, c(Entry, KEGG))
 prot <- merge(prot, uniprot2kegg_, by.x = "Gene", by.y = "Entry", all.x = TRUE)
 prot$Gene <- ifelse(is.na(prot$KEGG), yes = prot$Gene, no = prot$KEGG)
 prot$KEGG <- NULL
+#prot <- prot[grepl("^Pp.+", prot$Gene),]
+prot$Gene <- sapply(strsplit(prot$Gene, split = '\\.'), "[", 1)
+prot <- aggregate(. ~ Gene, data = prot, FUN = sum)
+prot$protfc <- log(prot$protPPtoPN, base = PROT_BASE)
+write(paste(nrow(prot), "Quntified (SWATH) proteins"), LOGNAME, append=T)
 
 ########## READ COSMOSS ######
 cos_names <- read.table("./cosmoss.genonaut.protein_name.txt", sep="\t",
@@ -309,50 +317,48 @@ cos_desc <- cos_desc[!duplicated(cos_desc$Gene), c("Gene", "value")]
 cos_desc <- rename(cos_desc, c("value" = "cosmoss_description"))
 
 ########## READ TAIR ######
-require(org.At.tair.db)
-tair_names_ <- org.At.tairSYMBOL
-keys_ <- mappedkeys(tair_names_)
-symbols_ <- sapply(as.list(tair_names_[keys_]),
-                   function(q) paste(unlist(q), collapse = ","))
-tair_names <- data.frame(TAIR = keys_, T_SYM = symbols_, stringsAsFactors = FALSE)
-
-
-tair_desc <- org.At.tairGENENAME
-tair_desc_keys <- mappedkeys(tair_desc)
-tair_desc <- sapply(as.list(tair_desc[tair_desc_keys]), function(q) q[[1]][1])
-tair_desc <- tair_desc[!duplicated(names(tair_desc))]
-tair_desc <- data.frame(TAIR = names(tair_desc), T_DESC = tair_desc, 
-                         stringsAsFactors = FALSE)
-
-
 tairs <- read.csv("./pp_tair.txt", sep = "\t", header = FALSE)
 colnames(tairs) <- c("Gene", "TAIR", "ident", "ev")
 rownames(tairs) <- NULL
 tairs <- subset(tairs, ident > 30 & ev < 0.05)
 tairs <- tairs[order(tairs$Gene, -tairs$ident, tairs$ev),]
 tairs <- tairs[!duplicated(tairs),]
-#tairs <- merge(tairs, tair_names, by = "TAIR", all.x = TRUE)
-#tairs <- merge(tairs, tair_desc, by = "TAIR", all.x = TRUE)
-
-
-#tairs$T_NAME <- sapply(tairs$TAIR, function (q) 
-#        paste(unlist(as.list(tair_names[q])))
-#    )
-
 tairs_one <- tairs[!duplicated(tairs$Gene),]
 tairs_one <- subset(tairs_one, select = c("Gene", "TAIR"))
-tairs_one <- merge(tairs_one, tair_names, by = "TAIR", all.x = TRUE)
-tairs_one <- merge(tairs_one, tair_desc, by = "TAIR", all.x = TRUE)
 
+if (TAIR_ANN == "orgdb")
+{
+    require(org.At.tair.db)
+    tair_names_ <- org.At.tairSYMBOL
+    keys_ <- mappedkeys(tair_names_)
+    symbols_ <- sapply(as.list(tair_names_[keys_]),
+                       function(q) paste(unlist(q), collapse = ","))
+    tair_names <- data.frame(TAIR = keys_, T_SYM = symbols_, stringsAsFactors = FALSE)
+    
+    
+    tair_desc <- org.At.tairGENENAME
+    tair_desc_keys <- mappedkeys(tair_desc)
+    tair_desc <- sapply(as.list(tair_desc[tair_desc_keys]), function(q) q[[1]][1])
+    tair_desc <- tair_desc[!duplicated(names(tair_desc))]
+    tair_desc <- data.frame(TAIR = names(tair_desc), T_DESC = tair_desc, 
+                            stringsAsFactors = FALSE)
+    
+    tairs_one <- merge(tairs_one, tair_names, by = "TAIR", all.x = TRUE)
+    tairs_one <- merge(tairs_one, tair_desc, by = "TAIR", all.x = TRUE)
+    tairs_one$T_GO <- NA
+} else if (TAIR_ANN == "uniprot")
+{
+    tairs_up <- read.csv2("./TAIR_uniprot.txt", sep ="\t", header = TRUE,
+                        stringsAsFactors = FALSE)
+    tairs_up <- tairs_up[!duplicated(tairs_up$TAIR), c("TAIR", "T_SYM", 
+                                                   "T_DESC", "T_GO")]
+    tairs_one <- merge(tairs_one, tairs_up, by = "TAIR", all.x  = TRUE)
+    
+} else {
+    stop("Wrong tair annotation!")
+}
 
 ################
-#prot <- prot[grepl("^Pp.+", prot$Gene),]
-prot$Gene <- sapply(strsplit(prot$Gene, split = '\\.'), "[", 1)
-prot <- aggregate(. ~ Gene, data = prot, FUN = sum)
-prot$protfc <- log(prot$protPPtoPN, base = PROT_BASE)
-write(paste(nrow(prot), "Quntified (SWATH) proteins"), LOGNAME, append=T)
-
-
 
 
 total <- merge(mrna[,c("Gene", "mrnaPPtoPN", "mrnafc", "mrnapv", "PP", "PN")], 
@@ -552,7 +558,12 @@ geneID2GO_CC <- inverseList(geneID2GO_CC)
 geneID2GO_BP <- annFUN.GO2genes(whichOnto = "BP", GO2genes = GO2geneID)
 geneID2GO_BP <- inverseList(geneID2GO_BP)
 PLASTID_GOs  <- c(GOCCOFFSPRING[[PLASTID_GO]], PLASTID_GO)
-prot_dep$isPlastid <- sapply(prot_dep$Gene, function(x) any(geneID2GO[[x]] %in% PLASTID_GOs))
+prot_dep$isPlastid <- sapply(prot_dep$Gene, function(x) 
+    any(geneID2GO[[x]] %in% PLASTID_GOs))
+prot_dep$isPlastid_tair <- sapply(prot_dep$T_GO, function(x) 
+    any(unfold_gos(x) %in% PLASTID_GOs))
+prot_dep$isPlastid <- prot_dep$isPlastid | prot_dep$isPlastid_tair
+
 prot_dep$GO_CC <- sapply(prot_dep$Gene, function(x) paste(geneID2GO_CC[[x]], collapse = ", "))
 prot_dep$GO_BP <- sapply(prot_dep$Gene, function(x) paste(geneID2GO_BP[[x]], collapse = ", "))
 
@@ -560,9 +571,10 @@ prot4cls <- prot_dep
 
 prot_dep <- prot_dep[, c("Gene",  "protPP", "protPN", "protPPtoPN", "logprotfc", "protpv", 
                          "mrnaPP", "mrnaPN", "mrnaPPtoPN", "logmrnafc",  "mrnapv",
-                         "isPlastid", "GO_CC", "GO_BP", "TAIR", "T_SYM", "T_DESC" )]
+                         "isPlastid", "GO_CC", "GO_BP",
+                         "TAIR", "T_SYM", "T_DESC", "T_GO" )]
 prot_dep <- rename(prot_dep, c("TAIR" = "TAIR homolog", "T_SYM" = "Homolog symbol", 
-                               "T_DESC" = "Homolog description"))
+                               "T_DESC" = "Homolog description", "T_GO"= "TAIR GO"))
 write.table(prot_dep, "plots/swathALL.txt", sep="\t", quote = FALSE, row.names = FALSE)
 prot_dep_filt <- subset(prot_dep, abs(logprotfc) > 1)
 prot_dep_filt <- subset(prot_dep_filt, protpv < 0.05)
