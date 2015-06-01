@@ -294,6 +294,20 @@ prot <- merge(prot, uniprot2kegg_, by.x = "Gene", by.y = "Entry", all.x = TRUE)
 prot$Gene <- ifelse(is.na(prot$KEGG), yes = prot$Gene, no = prot$KEGG)
 prot$KEGG <- NULL
 
+########## READ COSMOSS ######
+cos_names <- read.table("./cosmoss.genonaut.protein_name.txt", sep="\t",
+                      header = TRUE,stringsAsFactors = FALSE)
+cos_names$Gene <- sapply(strsplit(cos_names$accession, split = '\\.'), "[", 1) 
+cos_names <- cos_names[!duplicated(cos_names$Gene), c("Gene", "value")]
+cos_names <- rename(cos_names, c("value" = "cosmoss_name"))
+
+
+cos_desc <- read.csv2("./cosmoss.genonaut.description.txt", sep="\t",
+                        header = TRUE,stringsAsFactors = FALSE)
+cos_desc$Gene <- sapply(strsplit(cos_desc$accession, split = '\\.'), "[", 1) 
+cos_desc <- cos_desc[!duplicated(cos_desc$Gene), c("Gene", "value")]
+cos_desc <- rename(cos_desc, c("value" = "cosmoss_description"))
+
 ########## READ TAIR ######
 require(org.At.tair.db)
 tair_names_ <- org.At.tairSYMBOL
@@ -337,6 +351,7 @@ prot$Gene <- sapply(strsplit(prot$Gene, split = '\\.'), "[", 1)
 prot <- aggregate(. ~ Gene, data = prot, FUN = sum)
 prot$protfc <- log(prot$protPPtoPN, base = PROT_BASE)
 write(paste(nrow(prot), "Quntified (SWATH) proteins"), LOGNAME, append=T)
+
 
 
 
@@ -528,6 +543,8 @@ for (g in levels(total$group))
 }
 #### WRITE TABLES #####    
 
+prot_dep <- merge(prot_dep, cos_names, by = "Gene", all.x = TRUE)
+prot_dep <- merge(prot_dep, cos_desc, by = "Gene", all.x = TRUE)
 prot_dep <- merge(prot_dep, tairs_one, by = "Gene", all.x = TRUE)
 prot_dep <- rename(prot_dep, c("protfc" = "logprotfc"))
 geneID2GO_CC <- annFUN.GO2genes(whichOnto = "CC", GO2genes = GO2geneID)
