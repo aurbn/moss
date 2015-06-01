@@ -581,6 +581,8 @@ geneID2GO_TAIR <- readMappings(file = "tairGO_cast.txt")
 GO2geneID_TAIR <- inverseList(geneID2GO_TAIR)
 geneID2GO_CC_TAIR <- annFUN.GO2genes(whichOnto = "CC", GO2genes = GO2geneID_TAIR)
 geneID2GO_CC_TAIR <- inverseList(geneID2GO_CC_TAIR)
+geneID2GO_BP_TAIR <- annFUN.GO2genes(whichOnto = "BP", GO2genes = GO2geneID_TAIR)
+geneID2GO_BP_TAIR <- inverseList(geneID2GO_CC_TAIR)
 #### WRITE TABLES #####    
 
 prot_dep <- merge(prot_dep, cos_names, by = "Gene", all.x = TRUE)
@@ -606,6 +608,10 @@ prot_dep$isPlastid <- prot_dep$isPlastid | prot_dep$isPlastid_tair
 prot_dep$isPlastid <- ifelse(prot_dep$GO_CC == "" & prot_dep$T_GO == "",
                              NA, prot_dep$isPlastid)
 prot_dep[grepl("^PhpapaCp", prot_dep$Gene), "isPlastid"] <- TRUE
+write(paste(sum(prot_dep$isPlastid, na.rm = TRUE), "SWATH proteins is Plastid"),
+      LOGNAME, append=T)
+write(paste(sum(!prot_dep$isPlastid, na.rm = TRUE), "SWATH proteins is not Plastid"),
+      LOGNAME, append=T)
 #<- ifelse(is.na(prot_dep$T_GO), NA, prot_dep$isPlastid)
 
 prot4cls <- prot_dep
@@ -684,7 +690,27 @@ text(x, y, labels=l, cex= 0.7, pos=3)
 #plot(cls, hang = -1)
 #pk <- pam(1-bp_mx, 3)
 #pk1 <- pamk(1-bp_mx, krange=2:10, criterion="ch", usepam=TRUE, diss=TRUE)
-prot_dep$cluster <- pk$clustering
+#prot_dep$cluster <- pk$clustering
+clusters <- read.csv("./GO_clusters.csv", sep = "\t", header = FALSE, 
+                     stringsAsFactors = FALSE)
+names(clusters) <- c("cluster", "GO", "GO_desc", "CL_desc")
+prot_dep$cluster <- sapply(prot_dep$Gene, FUN = function(x)
+{
+    gos <- geneID2GO_BP[[x]]
+    if (is.null(gos))
+        gos <- geneID2GO_BP_TAIR[[x]]
+    if(is.null(gos))
+        return (100)
+        
+        i <- which.max(sapply(clusters$GO, function(y) mgoSim(y, gos, 
+                                                 ont = "BP",organism = "arabidpsis",
+                                                 combine = "avg")))
+        return(clusters$cluster[i])
+    
+})
+
+
+
 prot_dep_hmap <- prot_dep[order(prot_dep$cluster, prot_dep$logprotfc,
                                 prot_dep$logmrnafc),]
 # cl_labels <- lapply(unique(prot_dep_hmap$cluster), function(q) {
@@ -709,10 +735,11 @@ heatmap.2(hmap,
           #                      rep("", 60),  "3",
           #                      rep("", 100), "4",
           #                      rep("", 100), "5"),
-          labRow = c(rep("", 100), "1",
-                     rep("", 180), "2",
-                     rep("", 140),  "3"),
-          
+          #labRow = c(rep("", 100), "1",
+          #           rep("", 180), "2",
+          #           rep("", 140),  "3"),
+          labRow = FALSE,
+          labCol = c("SWATH", "FPKM"),
           Rowv= FALSE, #as.dendrogram(hc),
           Colv=FALSE,
           #cexRow=1,
@@ -730,7 +757,7 @@ heatmap.2(hmap,
           margins = c(5,5))
 dev.off()
 
-######################################
+###### EMPAI #############
 #IDA
 
 ida <- read.table("ida_by_spectra.csv", sep = "\t", header = TRUE, stringsAsFactors = FALSE)
@@ -739,16 +766,30 @@ ida <- aggregate(. ~ Gene, data = ida, FUN = sum)
 ida$idaPPtoPN <- ida$PP/ida$PN
 ida$idafc <- log(ida$idaPPtoPN, base = PROT_BASE)
 
+#EMPAI
 empai <- read.table("emPAI.csv", sep = '\t', header = TRUE, stringsAsFactors = FALSE)
 empai$Gene <- sapply(strsplit(empai$Gene, split = '\\.'), "[", 1)
 empai <- aggregate(. ~ Gene, data = empai, FUN = sum)
+empai <- merge(empai, tairs_one, by = "Gene", all.x = TRUE)
 empai$PN <- apply(empai[,PN_SAMPLES], 1, FUN = mean)
 empai$PP <- apply(empai[,PP_SAMPLES], 1, FUN = mean)
 empai$empaiPPtoPN <- empai$PP/empai$PN
 empai$empaifc <- log(empai$empaiPPtoPN, base = PROT_BASE)
 empai$empaipv <- apply(empai, 1, tst, PN_SAMPLES, PP_SAMPLES)
+empai$isPlastid_pp <- sapply(empai$Gene, function(x) 
+    any(geneID2GO[[x]] %in% PLASTID_GOs))
+empai$isPlastid_at <- sapply(empai$TAIR, function(x) 
+    any(geneID2GO_TAIR[[x]] %in% PLASTID_GOs))
+empai$isPlastid <- empai$isPlastid_pp | empai$isPlastid_at
+
 empai_all <- empai
+
+write(paste(nrow(empai), "EMPAI proteins"), LOGNAME, append=T)
+write(paste(sum(empai$isPlastid), "EMPAI proteins is Plastid"), LOGNAME, append=T)
+write(paste(sum(!empai$isPlastid), "EMPAI proteins is not Plastid"), LOGNAME, append=T)
 empai <- empai[empai$empaipv < EMPAI_PV_REQ, ]   # CHECK IT !!!!
+
+
 
 if(SCALE_EMPAI == TRUE)
 {

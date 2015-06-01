@@ -1,0 +1,204 @@
+1	GO:0015986	ATP synthesis coupled proton transport	ATP synthesis coupled proton transport
+1	GO:0042777	plasma membrane ATP synthesis coupled proton transport	ATP synthesis coupled proton transport
+1	GO:0006120	mitochondrial electron transport, NADH to ubiquinone	ATP synthesis coupled proton transport
+1	GO:0015995	chlorophyll biosynthetic process	ATP synthesis coupled proton transport
+1	GO:0006779	porphyrin-containing compound biosynthetic process	ATP synthesis coupled proton transport
+1	GO:0033014	tetrapyrrole biosynthetic process	ATP synthesis coupled proton transport
+1	GO:0006223	uracil salvage	ATP synthesis coupled proton transport
+1	GO:0009116	nucleoside metabolic process	ATP synthesis coupled proton transport
+1	GO:0006188	IMP biosynthetic process	ATP synthesis coupled proton transport
+1	GO:0009052	pentose-phosphate shunt, non-oxidative branch	ATP synthesis coupled proton transport
+1	GO:0015936	coenzyme A metabolic process	ATP synthesis coupled proton transport
+1	GO:0006221	pyrimidine nucleotide biosynthetic process	ATP synthesis coupled proton transport
+1	GO:0015996	chlorophyll catabolic process	ATP synthesis coupled proton transport
+1	GO:0006098	pentose-phosphate shunt	ATP synthesis coupled proton transport
+1	GO:0006189	'de novo' IMP biosynthetic process	ATP synthesis coupled proton transport
+1	GO:0006729	tetrahydrobiopterin biosynthetic process	ATP synthesis coupled proton transport
+1	GO:0006164	purine nucleotide biosynthetic process	ATP synthesis coupled proton transport
+1	GO:0009396	folic acid-containing compound biosynthetic process	ATP synthesis coupled proton transport
+2	GO:0009767	photosynthetic electron transport chain	photosynthetic electron transport chain
+2	GO:0022900	electron transport chain	photosynthetic electron transport chain
+2	GO:0009772	photosynthetic electron transport in photosystem II	photosynthetic electron transport chain
+2	GO:0019337	tetrachloroethylene catabolic process	photosynthetic electron transport chain
+2	GO:0009773	photosynthetic electron transport in photosystem I	photosynthetic electron transport chain
+2	GO:0006096	glycolytic process	photosynthetic electron transport chain
+2	GO:0019419	sulfate reduction	photosynthetic electron transport chain
+2	GO:0006505	GPI anchor metabolic process	photosynthetic electron transport chain
+2	GO:0006099	tricarboxylic acid cycle	photosynthetic electron transport chain
+2	GO:0009247	glycolipid biosynthetic process	photosynthetic electron transport chain
+2	GO:0030259	lipid glycosylation	photosynthetic electron transport chain
+2	GO:0019379	sulfate assimilation, phosphoadenylyl sulfate reduction by phosphoadenylyl-sulfate reductase (thioredoxin)	photosynthetic electron transport chain
+2	GO:0019430	removal of superoxide radicals	photosynthetic electron transport chain
+2	GO:0042744	hydrogen peroxide catabolic process	photosynthetic electron transport chain
+3	GO:0006508	proteolysis	protein metabolic process
+3	GO:0018298	protein-chromophore linkage	protein metabolic process
+3	GO:0006446	regulation of translational initiation	protein metabolic process
+3	GO:0006412	translation	protein metabolic process
+3	GO:0006355	regulation of transcription, DNA-templated	protein metabolic process
+3	GO:0006437	tyrosyl-tRNA aminoacylation	protein metabolic process
+3	GO:0006457	protein folding	protein metabolic process
+3	GO:0030163	protein catabolic process	protein metabolic process
+3	GO:0006265	DNA topological change	protein metabolic process
+3	GO:0006396	RNA processing	protein metabolic process
+3	GO:0006417	regulation of translation	protein metabolic process
+3	GO:0006424	glutamyl-tRNA aminoacylation	protein metabolic process
+3	GO:0006281	DNA repair	protein metabolic process
+3	GO:0006432	phenylalanyl-tRNA aminoacylation	protein metabolic process
+3	GO:0008033	tRNA processing	protein metabolic process
+3	GO:0006415	translational termination	protein metabolic process
+3	GO:0019538	protein metabolic process	protein metabolic process
+3	GO:0006468	protein phosphorylation	protein metabolic process
+3	GO:0009250	glucan biosynthetic process	protein metabolic process
+3	GO:0006434	seryl-tRNA aminoacylation	protein metabolic process
+3	GO:0006289	nucleotide-excision repair	protein metabolic process
+3	GO:0019252	starch biosynthetic process	protein metabolic process
+3	GO:0005978	glycogen biosynthetic process	protein metabolic process
+3	GO:0010467	gene expression	protein metabolic process
+3	GO:0006428	isoleucyl-tRNA aminoacylation	protein metabolic process
+3	GO:0006421	asparaginyl-tRNA aminoacylation	protein metabolic process
+3	GO:0006422	aspartyl-tRNA aminoacylation	protein metabolic process
+3	GO:0006433	prolyl-tRNA aminoacylation	protein metabolic process
+3	GO:0006420	arginyl-tRNA aminoacylation	protein metabolic process
+3	GO:0006426	glycyl-tRNA aminoacylation	protein metabolic process
+3	GO:0005983	starch catabolic process	protein metabolic process
+3	GO:0046777	protein autophosphorylation	protein metabolic process
+3	GO:0006430	lysyl-tRNA aminoacylation	protein metabolic process
+3	GO:0006413	translational initiation	protein metabolic process
+3	GO:0006364	rRNA processing	protein metabolic process
+3	GO:0010304	PSII associated light-harvesting complex II catabolic process	protein metabolic process
+3	GO:0006431	methionyl-tRNA aminoacylation	protein metabolic process
+3	GO:0006419	alanyl-tRNA aminoacylation	protein metabolic process
+3	GO:0006438	valyl-tRNA aminoacylation	protein metabolic process
+3	GO:0006429	leucyl-tRNA aminoacylation	protein metabolic process
+3	GO:0010206	photosystem II repair	protein metabolic process
+3	GO:0006464	cellular protein modification process	protein metabolic process
+4	GO:0006810	transport	transmembrane transport
+4	GO:0006814	sodium ion transport	transmembrane transport
+4	GO:0015992	proton transport	transmembrane transport
+4	GO:0006812	cation transport	transmembrane transport
+4	GO:0006813	potassium ion transport	transmembrane transport
+4	GO:0055085	transmembrane transport	transmembrane transport
+4	GO:0009401	phosphoenolpyruvate-dependent sugar phosphotransferase system	transmembrane transport
+4	GO:0006820	anion transport	transmembrane transport
+4	GO:0006826	iron ion transport	transmembrane transport
+4	GO:0006898	receptor-mediated endocytosis	transmembrane transport
+5	GO:0015979	photosynthesis	photosynthesis, light reaction
+5	GO:0009853	photorespiration	photosynthesis, light reaction
+5	GO:0019684	photosynthesis, light reaction	photosynthesis, light reaction
+5	GO:0044237	cellular metabolic process	photosynthesis, light reaction
+5	GO:0009765	photosynthesis, light harvesting	photosynthesis, light reaction
+5	GO:0000422	mitochondrion degradation	photosynthesis, light reaction
+5	GO:0010506	regulation of autophagy	photosynthesis, light reaction
+5	GO:0042549	photosystem II stabilization	photosynthesis, light reaction
+5	GO:0016998	cell wall macromolecule catabolic process	photosynthesis, light reaction
+5	GO:0000103	sulfate assimilation	photosynthesis, light reaction
+5	GO:0016310	phosphorylation	photosynthesis, light reaction
+5	GO:0006725	cellular aromatic compound metabolic process	photosynthesis, light reaction
+6	GO:0006090	pyruvate metabolic process	amino acid metabolic process
+6	GO:0006633	fatty acid biosynthetic process	amino acid metabolic process
+6	GO:0046487	glyoxylate metabolic process	amino acid metabolic process
+6	GO:0006744	ubiquinone biosynthetic process	amino acid metabolic process
+6	GO:0006534	cysteine metabolic process	amino acid metabolic process
+6	GO:0006526	arginine biosynthetic process	amino acid metabolic process
+6	GO:0006564	L-serine biosynthetic process	amino acid metabolic process
+6	GO:0009088	threonine biosynthetic process	amino acid metabolic process
+6	GO:0009098	leucine biosynthetic process	amino acid metabolic process
+6	GO:0009097	isoleucine biosynthetic process	amino acid metabolic process
+6	GO:0009099	valine biosynthetic process	amino acid metabolic process
+6	GO:0006749	glutathione metabolic process	amino acid metabolic process
+6	GO:0006561	proline biosynthetic process	amino acid metabolic process
+6	GO:0006535	cysteine biosynthetic process from serine	amino acid metabolic process
+6	GO:0019877	diaminopimelate biosynthetic process	amino acid metabolic process
+6	GO:0016114	terpenoid biosynthetic process	amino acid metabolic process
+6	GO:0019288	isopentenyl diphosphate biosynthetic process, methylerythritol 4-phosphate pathway	amino acid metabolic process
+6	GO:0006108	malate metabolic process	amino acid metabolic process
+6	GO:0006544	glycine metabolic process	amino acid metabolic process
+6	GO:0006563	L-serine metabolic process	amino acid metabolic process
+6	GO:0006730	one-carbon metabolic process	amino acid metabolic process
+6	GO:0031408	oxylipin biosynthetic process	amino acid metabolic process
+6	GO:0016117	carotenoid biosynthetic process	amino acid metabolic process
+6	GO:0006537	glutamate biosynthetic process	amino acid metabolic process
+6	GO:0006102	isocitrate metabolic process	amino acid metabolic process
+6	GO:0006542	glutamine biosynthetic process	amino acid metabolic process
+6	GO:0019509	L-methionine biosynthetic process from methylthioadenosine	amino acid metabolic process
+6	GO:0009086	methionine biosynthetic process	amino acid metabolic process
+6	GO:0000162	tryptophan biosynthetic process	amino acid metabolic process
+6	GO:0000105	histidine biosynthetic process	amino acid metabolic process
+6	GO:0019464	glycine decarboxylation via glycine cleavage system	amino acid metabolic process
+6	GO:0006750	glutathione biosynthetic process	amino acid metabolic process
+6	GO:0006086	acetyl-CoA biosynthetic process from pyruvate	amino acid metabolic process
+6	GO:0006525	arginine metabolic process	amino acid metabolic process
+6	GO:0009089	lysine biosynthetic process via diaminopimelate	amino acid metabolic process
+6	GO:0009688	abscisic acid biosynthetic process	amino acid metabolic process
+6	GO:0016123	xanthophyll biosynthetic process	amino acid metabolic process
+6	GO:0006546	glycine catabolic process	amino acid metabolic process
+7	GO:0019253	reductive pentose-phosphate cycle	photosynthesis, dark reaction
+7	GO:0019685	photosynthesis, dark reaction	photosynthesis, dark reaction
+7	GO:0006014	D-ribose metabolic process	photosynthesis, dark reaction
+7	GO:0005975	carbohydrate metabolic process	photosynthesis, dark reaction
+7	GO:0006094	gluconeogenesis	photosynthesis, dark reaction
+7	GO:0008610	lipid biosynthetic process	photosynthesis, dark reaction
+7	GO:0044262	cellular carbohydrate metabolic process	photosynthesis, dark reaction
+7	GO:0006629	lipid metabolic process	photosynthesis, dark reaction
+8	GO:0055114	oxidation-reduction process	Cluster 8 
+8	GO:0051301	cell division	Cluster 8 
+8	GO:0015977	carbon fixation	Cluster 8 
+8	GO:0015976	carbon utilization	Cluster 8 
+9	GO:0042254	ribosome biogenesis	electron transport chain assembly 
+9	GO:0010207	photosystem II assembly	electron transport chain assembly 
+9	GO:0010258	NADH dehydrogenase complex (plastoquinone) assembly	electron transport chain assembly 
+9	GO:0010190	cytochrome b6f complex assembly	electron transport chain assembly 
+9	GO:0010270	photosystem II oxygen evolving complex assembly	electron transport chain assembly 
+10	GO:0007165	signal transduction	signal transduction
+10	GO:0045454	cell redox homeostasis	signal transduction
+10	GO:0042981	regulation of apoptotic process	signal transduction
+10	GO:0007186	G-protein coupled receptor signaling pathway	signal transduction
+10	GO:0006808	regulation of nitrogen utilization	signal transduction
+10	GO:0007218	neuropeptide signaling pathway	signal transduction
+10	GO:0010182	sugar mediated signaling pathway	signal transduction
+10	GO:0009862	systemic acquired resistance, salicylic acid mediated signaling pathway	signal transduction
+11	GO:0009399	nitrogen fixation	nitrogen metabolic process
+11	GO:0008152	metabolic process	nitrogen metabolic process
+12	GO:0042742	defense response to bacterium	defense response to bacterium
+12	GO:0009617	response to bacterium	defense response to bacterium
+13	GO:0009793	embryo development ending in seed dormancy	embryo development
+13	GO:0009561	megagametogenesis	embryo development
+13	GO:0009836	fruit ripening, climacteric	embryo development
+13	GO:0048481	ovule development	embryo development
+13	GO:0010259	multicellular organismal aging	embryo development
+13	GO:0002119	nematode larval development	embryo development
+13	GO:0008340	determination of adult lifespan	embryo development
+13	GO:0009792	embryo development ending in birth or egg hatching	embryo development
+13	GO:0040035	hermaphrodite genitalia development	embryo development
+14	GO:0009409	response to cold	response to abiotic stress
+14	GO:0009651	response to salt stress	response to abiotic stress
+14	GO:0009644	response to high light intensity	response to abiotic stress
+14	GO:0006950	response to stress	response to abiotic stress
+14	GO:0006979	response to oxidative stress	response to abiotic stress
+14	GO:0009408	response to heat	response to abiotic stress
+14	GO:0009416	response to light stimulus	response to abiotic stress
+14	GO:0050826	response to freezing	response to abiotic stress
+14	GO:0009611	response to wounding	response to abiotic stress
+15	GO:0046686	response to cadmium ion	response to stress hormones
+15	GO:0000304	response to singlet oxygen	response to stress hormones
+15	GO:0009753	response to jasmonic acid	response to stress hormones
+15	GO:0009414	response to water deprivation	response to stress hormones
+15	GO:0009737	response to abscisic acid	response to stress hormones
+16	GO:0010027	thylakoid membrane organization	organelle organisation
+16	GO:0006333	chromatin assembly or disassembly	organelle organisation
+16	GO:0016568	chromatin modification	organelle organisation
+16	GO:0009658	chloroplast organization	organelle organisation
+16	GO:0007005	mitochondrion organization	organelle organisation
+17	GO:0045037	protein import into chloroplast stroma	protein transport
+17	GO:0045038	protein import into chloroplast thylakoid membrane	protein transport
+17	GO:0015031	protein transport	protein transport
+17	GO:0006886	intracellular protein transport	protein transport
+17	GO:0030150	protein import into mitochondrial matrix	protein transport
+17	GO:0009306	protein secretion	protein transport
+17	GO:0006605	protein targeting	protein transport
+17	GO:0017038	protein import	protein transport
+17	GO:0065002	intracellular protein transmembrane transport	protein transport
+18	GO:0050821	protein stabilization	protein stabilisation
+19	GO:0006879	cellular iron ion homeostasis	cellular iron ion homeostasis
+20	GO:0040010	positive regulation of growth rate	positive regulation of growth rate
+20	GO:0040018	positive regulation of multicellular organism growth	positive regulation of growth rate
