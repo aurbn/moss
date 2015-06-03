@@ -720,6 +720,8 @@ prot_dep_hmap <- prot_dep[order(prot_dep$cluster, prot_dep$logprotfc,
 #         names(t) <- q
 #         retunr(t)
 #     })
+color <- colorRampPalette(rev(c("#D73027", "#FC8D59", "#FEE090", 
+                       "#FFFFBF", "#E0F3F8", "#91BFDB", "#4575B4")))(100)
 hmap_sep = which(!duplicated(prot_dep_hmap$cluster))
 #heatmap(cbind(prot_dep_hmap$protPPtoPN, prot_dep_hmap$mrnaPPtoPN))
 #x11()
@@ -727,9 +729,10 @@ my_palette <- colorRampPalette(c("green", "black", "red"))(n = 1000)
 hmap <- as.matrix(cbind(prot_dep_hmap$logprotfc, prot_dep_hmap$logmrnafc))
 hmap[!is.finite(hmap)] <- 0
 colnames(hmap) <- c("Protein", "mRNA")
-png("plots/hmap.png", height = 1000)
+png("plots/hmap.png")
+x11(width = 50)
 heatmap.2(hmap,
-          cexRow = 2,
+          cexRow = 1,
           #           labRow = c(rep("", 100), "1",
           #                      rep("", 120), "2",
           #                      rep("", 60),  "3",
@@ -738,23 +741,24 @@ heatmap.2(hmap,
           #labRow = c(rep("", 100), "1",
           #           rep("", 180), "2",
           #           rep("", 140),  "3"),
-          labRow = FALSE,
+          lwid=c(.3,.3),
+          #labRow = rn,
           labCol = c("SWATH", "FPKM"),
-          Rowv= FALSE, #as.dendrogram(hc),
+          Rowv= TRUE, #as.dendrogram(hc),
           Colv=FALSE,
           #cexRow=1,
           cexCol=1,
-          dendrogram=NULL,
+          dendrogram="row",
           scale="column",
           #labRow = FALSE,
-          rowsep = hmap_sep,
+          #rowsep = hmap_sep,
           sepwidth=c(1, 1),
           trace="none",
           density.info="none",
           key=FALSE,
           symkey = TRUE,
-          col=my_palette,
-          margins = c(5,5))
+          col=color,
+          margins = c(1,15))
 dev.off()
 
 ###### EMPAI #############
