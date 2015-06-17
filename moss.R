@@ -638,7 +638,7 @@ write.table(prot_dep_false, "plots/swathNoPLastid.txt", sep="\t",
 
 color <- colorRampPalette(rev(c("#D73027", "#FC8D59", "#FEE090", 
                        "#FFFFBF", "#E0F3F8", "#91BFDB", "#4575B4")))(100)
-hmap_sep = which(!duplicated(prot_dep_hmap$cluster))
+#hmap_sep = which(!duplicated(prot_dep_hmap$cluster))
 #heatmap(cbind(prot_dep_hmap$protPPtoPN, prot_dep_hmap$mrnaPPtoPN))
 #x11()
 my_palette <- colorRampPalette(c("green", "black", "red"))(n = 1000)
@@ -816,6 +816,9 @@ for (p in PATHWAYS)
         next
 
     ok_ <- !is.na(pv.out$plot.data.gene$mol.data)
+    if(sum(ok_) < 1)
+        next
+    
     fname = paste0("pathways/", sprintf("%02i_", sum(ok_)), KEGG_SP, p, ".kegg" )
     keggs <- unique(pv.out$plot.data.gene[ok_,]$kegg.names)
     
