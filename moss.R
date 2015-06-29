@@ -634,11 +634,133 @@ write(paste(nrow(prot_dep), "differentialy expressed (SWATH) proteins"), LOGNAME
 prot_dep_false <- subset(prot_dep, isPlastid == FALSE)
 write.table(prot_dep_false, "plots/swathNoPLastid.txt", sep="\t", 
             quote = FALSE, row.names = FALSE)
-######## GO CLUSTERING AND HEATMAP ####################
+########  HEATMAP ####################
 
+#color <- colorRampPalette(rev(c("#D73027", "#FC8D59", "#FEE090", 
+#                       "#FFFFBF", "#E0F3F8", "#91BFDB", "#4575B4")))(100)
 color <- colorRampPalette(rev(c("#D73027", "#FC8D59", "#FEE090", 
-                       "#FFFFBF", "#E0F3F8", "#91BFDB", "#4575B4")))(100)
-hmap_sep = which(!duplicated(prot_dep_hmap$cluster))
+                       "#FFFFFF", "#E0F3F8", "#91BFDB", "#4575B4")))(100)
+                                
+
+
+ok_ <- is.finite(prot_dep$logprotfc) & is.finite(prot_dep$logmrnafc)
+hmap_data_all <- prot_dep[ok_,
+                          c("logprotfc", "logmrnafc")]
+rownames(hmap_data_all) <- prot_dep$Gene[ok_]
+dist_all <- dist(hmap_data_all)
+z <- scale(hmap_data_all)
+hcl_row <- hclust(dist_all, method="average")
+dendr <- as.dendrogram(hcl_row)
+ord <- reorder(dendr)
+dendr_c <-  cut(dendr, h=1.5)$upper
+reorderfun = function(d,w) { reorder(dendr, w) }
+png("all.png", width = 1200, height = 1200)
+
+
+heatmap.2(z, trace='none',
+          col=color, 
+          Rowv=dendr, 
+          Colv=FALSE,
+          labCol = c("SWATH", "FPKM"),
+          labRow = FALSE,
+          dendrogram="row",
+          cexCol=1,
+          srtCol = 0,
+          symbreak=TRUE,
+          margins = c(2,2),
+          key=FALSE,
+          lwid = c(1,1)
+          #reorderfun = reorderfun
+          )
+dev.off()
+
+
+colnames(z) <- c("SWATH", "FPKM")
+pheatmap(z,
+         col = color, 
+         treeheight_row = 100,
+         show_rownames = FALSE,
+         cluster_cols = FALSE
+         
+         )
+
+
+
+ok__ <- is.finite(prot_dep_filt$logprotfc) & is.finite(prot_dep_filt$logmrnafc)
+hmap_data_f <- prot_dep_filt[ok__,
+                          c("logprotfc", "logmrnafc")]
+rownames(hmap_data_f) <- prot_dep_filt$Gene[ok__]
+dist_f <- dist(hmap_data_f)
+z_f <- scale(hmap_data_f)
+hcl_row_f <- hclust(dist_f, method="average")
+dendr_f <- as.dendrogram(hcl_row_f)
+png("dep.png", width = 1200, height = 1200)
+heatmap.2(z_f, trace='none',
+          col=color, 
+          Rowv=dendr_f, 
+          Colv=FALSE,
+          labCol = c("SWATH", "FPKM"),
+          labRow = FALSE,
+          dendrogram="row",
+          cexCol=1,
+          srtCol = 0,
+          symbreak=TRUE,
+          margins = c(2,2),
+          key=FALSE,
+          lwid = c(1,1), 
+          #reorderfun = reorderfun
+)
+dev.off()
+
+op <- par(cex.main = 10)
+for (f in list.files("./4hmaps/"))
+{
+    l = read.csv(paste0("./4hmaps/",f), header = FALSE, sep ="\t", 
+                 stringsAsFactors = FALSE)
+    d = merge(l, prot4cls[,c("Gene", "logprotfc", "logmrnafc")], 
+              by.x = "V1", by.y = "Gene", all.x = TRUE)
+   
+    #rownames(d) <- d$V2
+    #d$V1 <- NULL
+    #d$V2 <- NULL
+    
+    dd <- as.matrix(d[,c("logprotfc", "logmrnafc")])
+    colnames(dd) <- c("SWATH", "FPKM")
+    rownames(dd) <- d$V2
+    
+    fname <- sapply(strsplit(f, "\\."), "[", 1)
+    
+    notes <- matrix("", nrow = nrow(dd), ncol = ncol(dd))
+    notes[!is.finite(dd)] <- "NA"
+    dd[!is.finite(dd)] <- 0
+    png(paste0("./hmaps/", f, ".png"), width = 1500, height = 1200)
+    heatmap.2(dd, trace='none',
+              cellnote = notes,
+              notecol = "black",
+              col=color, 
+              Rowv=TRUE, 
+              Colv=FALSE,
+              labCol = c("SWATH", "FPKM"),
+             # labRow = TRUE,
+              cexRow=2,
+              adjCol = c(0,.5),
+              dendrogram="row",
+              cexCol=2,
+              srtCol = 0,
+              symbreak=TRUE,
+              margins = c(2,23),
+              key=FALSE,
+              main = fname,
+             lhei = c(1,15)
+            #  lwid = c(5,5)
+              #reorderfun = reorderfun
+    )
+    dev.off()
+    
+}
+par(op)
+
+
 #heatmap(cbind(prot_dep_hmap$protPPtoPN, prot_dep_hmap$mrnaPPtoPN))
 #x11()
 my_palette <- colorRampPalette(c("green", "black", "red"))(n = 1000)
@@ -663,7 +785,7 @@ heatmap.2(hmap,
           Rowv= TRUE, #as.dendrogram(hc),
           Colv=FALSE,
           #cexRow=1,
-          cexCol=1,
+          cexCol=5,
           dendrogram="row",
           scale="column",
           #labRow = FALSE,
