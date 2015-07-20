@@ -52,9 +52,9 @@ ggplotRegression <- function (fit, xname = NULL, yname = NULL, meth = "pearson")
         stat_smooth(method = "lm", col = "red") +
         ggtitle(paste(#"Adj R2 = ",signif(summary(fit)$adj.r.squared, 2),
                            "r = ", signif(cor((fit$model)[2], (fit$model)[1], 
-                                                  method = meth), 2),
-                           ";\n Intercept =",signif(fit$coef[[1]],2 ),
-                           "; Slope =",signif(fit$coef[[2]], 2)
+                                                  method = meth), 2)#,
+                           #";\n Intercept =",signif(fit$coef[[1]],2 ),
+                           #"; Slope =",signif(fit$coef[[2]], 2)
                            #"; P =",signif(summary(fit)$coef[2,4], 2)
                            ))
 }
@@ -638,8 +638,11 @@ write.table(prot_dep_false, "plots/swathNoPLastid.txt", sep="\t",
 
 #color <- colorRampPalette(rev(c("#D73027", "#FC8D59", "#FEE090", 
 #                       "#FFFFBF", "#E0F3F8", "#91BFDB", "#4575B4")))(100)
-color <- colorRampPalette(rev(c("#D73027", "#FC8D59", "#FEE090", 
-                       "#FFFFFF", "#E0F3F8", "#91BFDB", "#4575B4")))(100)
+
+#color <- colorRampPalette(rev(c("#D73027", "#FC8D59", "#FEE090", 
+#                       "#000000", "#E0F3F8", "#91BFDB", "#4575B4")))(1000)
+color <- colorRampPalette(rev(c("red", "black", "green")))(1000)
+breaks = c(-4.1, seq(-4,4, length.out = 1000-1), 4.1)
                                 
 
 
@@ -654,10 +657,13 @@ dendr <- as.dendrogram(hcl_row)
 ord <- reorder(dendr)
 dendr_c <-  cut(dendr, h=1.5)$upper
 reorderfun = function(d,w) { reorder(dendr, w) }
-png("all.png", width = 1200, height = 1200)
 
 
+
+
+svg("all.svg")#, width = 1200, height = 1200)
 heatmap.2(z, trace='none',
+          scale = 'none',
           col=color, 
           Rowv=dendr, 
           Colv=FALSE,
@@ -667,9 +673,13 @@ heatmap.2(z, trace='none',
           cexCol=1,
           srtCol = 0,
           symbreak=TRUE,
+          breaks = breaks,
           margins = c(2,2),
           key=FALSE,
-          lwid = c(1,1)
+          keysize = 1.5,
+          density.info = "none",
+          #lwid = c(10,1),
+          #lhei = c(10,1),
           #reorderfun = reorderfun
           )
 dev.off()
@@ -694,8 +704,9 @@ dist_f <- dist(hmap_data_f)
 z_f <- scale(hmap_data_f)
 hcl_row_f <- hclust(dist_f, method="average")
 dendr_f <- as.dendrogram(hcl_row_f)
-png("dep.png", width = 1200, height = 1200)
-heatmap.2(z_f, trace='none',
+svg("dep.svg")#, width = 1200, height = 1200)
+x <- heatmap.2(z_f, trace='none',
+          scale = "none",
           col=color, 
           Rowv=dendr_f, 
           Colv=FALSE,
@@ -705,9 +716,12 @@ heatmap.2(z_f, trace='none',
           cexCol=1,
           srtCol = 0,
           symbreak=TRUE,
+          breaks = breaks,
           margins = c(2,2),
           key=FALSE,
-          lwid = c(1,1), 
+          density.info = 'none',
+          #lwid = c(1,10),
+          #lhei = c(1,10)
           #reorderfun = reorderfun
 )
 dev.off()
@@ -733,25 +747,28 @@ for (f in list.files("./4hmaps/"))
     notes <- matrix("", nrow = nrow(dd), ncol = ncol(dd))
     notes[!is.finite(dd)] <- "NA"
     dd[!is.finite(dd)] <- 0
-    png(paste0("./hmaps/", f, ".png"), width = 1500, height = 1200)
+    svg(paste0("./hmaps/", f, ".svg")) #, width = 1500, height = 1200)
     heatmap.2(dd, trace='none',
+              scale = 'none',
               cellnote = notes,
               notecol = "black",
               col=color, 
+              breaks = breaks,
               Rowv=TRUE, 
               Colv=FALSE,
               labCol = c("SWATH", "FPKM"),
              # labRow = TRUE,
-              cexRow=2,
+              cexRow=0.5,
               adjCol = c(0,.5),
               dendrogram="row",
-              cexCol=2,
+              cexCol=0.5,
               srtCol = 0,
               symbreak=TRUE,
-              margins = c(2,23),
+              margins = c(2,10),
               key=FALSE,
+             density.info = "none",
               main = fname,
-             lhei = c(1,15)
+             #lhei = c(10,15)
             #  lwid = c(5,5)
               #reorderfun = reorderfun
     )
@@ -763,7 +780,7 @@ par(op)
 
 #heatmap(cbind(prot_dep_hmap$protPPtoPN, prot_dep_hmap$mrnaPPtoPN))
 #x11()
-my_palette <- colorRampPalette(c("green", "black", "red"))(n = 1000)
+my_palette <- colorRampPalette(rev(c("green", "black", "red")))(n = 1000)
 hmap <- as.matrix(cbind(prot_dep_hmap$logprotfc, prot_dep_hmap$logmrnafc))
 hmap[!is.finite(hmap)] <- 0
 colnames(hmap) <- c("Protein", "mRNA")
