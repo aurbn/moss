@@ -418,8 +418,6 @@ print(p)
 total$group <- as.factor(apply(total[,c("mrnafc", "protfc", "mrnapv","protpv")], 1,
                                function(x) group(x[1], x[2], x[3], x[4])))
 
-total <- merge(total, id_table, by = "Gene", all.x = TRUE)
-total <- unique(total)
 write(paste(nrow(total), "Quantified mRNA and SWATH genes"), LOGNAME, append=T)
 
 
@@ -435,15 +433,6 @@ total_$mRNA <- sapply(total_$group, gdesk, what="m")
 total_$SWATH <- sapply(total_$group, gdesk, what="p")
 write.table(total_, "plots/mrna_swath_all.txt", sep="\t", quote = FALSE, row.names = FALSE)
 
-p <- ggplot(total, aes(x=protfc, y=mrnafc, colour = group))
-p <- p + geom_point(size  = 3)
-p <- p + geom_hline()
-p <- p + geom_vline()
-p <- p + xlab(expression(log [1.4]~(protein~fold~change)))
-p <- p + ylab(expression(log [2]~(transcript~fold~change)))
-ggsave("plots/groups.png", p)
-print(p)
-
 
 tmp <- total[, c("Gene","mrnafc", "protfc", "group")]
 tmp <- tmp[is.finite(tmp$mrnafc)&is.finite(tmp$protfc),]
@@ -455,122 +444,6 @@ ggsave("plots/mrna_prot.png", p)
 print(p)
 
 ##### FUNCTIONAL ANNOTATION #####
-bk_genes <- scan("background.txt", what = character())
-
-if (ANN_METHOD == "david")
-{
-    library("RDAVIDWebService")
-    david <- DAVIDWebService$new(email='anatoly.urban@phystech.edu')
-    BG <- addList(david, bk_genes, idType="TAIR_ID", listName="bkgrd", listType="Background")
-    setAnnotationCategories(david, c("GOTERM_BP_ALL", "GOTERM_MF_ALL"))
-} else if(ANN_METHOD == "topGO")
-{
-    require(topGO)
-#     gosdb = read.table("cosmoss_go_melt.txt", sep = "\t", col.names = c("Gene", "GO", "Descr"), 
-#                        stringsAsFactors = FALSE)
-#     gosdb <- gosdb[grepl("^Pp.+", gosdb$Gene),]
-#     gosdb$Gene <- sapply(strsplit(gosdb$Gene, split = '\\.'), "[", 1)
-#     
-    geneID2GO <- readMappings(file = "cosmoss_go_cast.txt")
-    GO2geneID <- inverseList(geneID2GO)
-    geneNames <- names(geneID2GO)
-
-    getSigInTerm <- function(term, godata)
-    {
-        sg = sigGenes(GOdata)
-        tg = genesInTerm(GOdata, term)[[1]]
-        paste(intersect(sg,tg), collapse = ", ")
-    }
-}
-
-for (g in levels(total$group))
-{
-    print(paste0("Annotating ", g))
-    
-    if (ANN_METHOD == "david")
-    {
-        list_go <- na.omit(total[total$group==g, "TAIR"])
-        n_k <- length((list_go))
-        t_ <- kegg_get(list_go, "ath")
-        names(t_)[1] <- "TAIR"
-        t_ <- merge(t_, total[,c("TAIR", "Gene", "mrnafc", "protfc")], by = "TAIR")
-        t_ <- t_[,c("TAIR", "Gene", "mrnafc", "protfc", "Orthology", "Definition")]
-        t_ <- unique(t_)
-        write.table(t_, sep = "\t", quote = FALSE, row.names = FALSE,
-                    file = paste0("groups/", g, sprintf("_%02i", n_k),  ".txt"))
-        rm(t_)
-        
-        FG <- addList(david, list_go, idType="TAIR_ID", listName=g, listType="Gene")
-        setCurrentBackgroundPosition(david,
-            grep("bkgrd", getBackgroundListNames(david)))
-        setCurrentGeneListPosition(david,
-                                     grep(g, getGeneListNames(david)))
-        ann <- getFunctionalAnnotationChart(david, threshold=DAVID_REQ_PV)
-        
-        setCurrentBackgroundPosition(david,
-                                     grep("bkgrd", getBackgroundListNames(david)))
-        setCurrentGeneListPosition(david,
-                                   grep(g, getGeneListNames(david)))
-        clann <- getClusterReport(david, type = "Term" )#, threshold=DAVID_REQ_PV)
-        
-        for (cl in clann@cluster)
-        {
-            fname <-  paste0("groups/", g, ".clusters.david.txt")
-            write(paste("Enrichment",cl[[1]]), file = fname, append = TRUE)
-            cltab <- cl[[2]][,c("Category", "Term", "Count",
-                                "PValue", "Bonferroni", "Benjamini", "FDR")]
-            cltab <- cltab[cltab$PValue < DAVID_REQ_PV,]
-            if (nrow(cltab) > 0)
-            {
-                suppressWarnings(
-                    write.table(cltab, file = fname, append = TRUE)
-                    )
-            } else
-            {
-                write("No significant results!", file = fname, append = TRUE)
-            }
-            write("\n", file = fname, append = TRUE)
-         }
-        
-        #ann <- ann[ann$PValue < DAVID_REQ_PV,]
-        if (nrow(ann) > 0)
-        {
-            ann <- ann[order(ann$PValue), ]
-            write.table(ann[,c("Category", "Term", "Count", "PValue", "Genes")],
-                file = paste0("groups/", g, ".david.txt"), quote = FALSE, sep = '\t')
-        }else
-        {
-            write("No significant results!", file = paste0("groups/", g, ".david.txt"))
-        }
-    }else if (ANN_METHOD == "topGO")
-    {
-        geneList = total[total$group == g, "Gene"]
-        genes = geneList
-        geneList <- factor(as.integer(geneNames %in% geneList))
-        if (length(levels(geneList)) != 2)
-            next
-        
-        names(geneList) <- geneNames
-        
-        for (ont in c("CC", "BP", "MF"))
-        {
-            GOdata <- new("topGOdata",ontology=ont, allGenes = geneList, 
-                          annot = annFUN.gene2GO, gene2GO = geneID2GO)
-            
-            test.stat <- new("classicCount", testStatistic = GOFisherTest, name = "Fisher test")
-            resultFisher <- getSigGroups(GOdata, test.stat)
-            resultFis <- runTest(GOdata, algorithm = "classic", statistic = "fisher")
-            
-            allRes <- GenTable(GOdata, classic = resultFis,
-                               ranksOf = "classic", topNodes = 100)#, orderBy = "weight")
-            allRes <- allRes[allRes$classic < 0.05,]
-            allRes$Genes <- sapply(allRes$GO.ID, FUN = getSigInTerm, godata = GOdata)
-                                
-            write.table(allRes, paste0("groups/", g,"_", ont, "_topGO.txt"),sep="\t")
-            
-        }
-    }
-}
 
 require(topGO)
 geneID2GO <- readMappings(file = "cosmoss_go_cast.txt")
@@ -634,6 +507,147 @@ write(paste(nrow(prot_dep), "differentialy expressed (SWATH) proteins"), LOGNAME
 prot_dep_false <- subset(prot_dep, isPlastid == FALSE)
 write.table(prot_dep_false, "plots/swathNoPLastid.txt", sep="\t", 
             quote = FALSE, row.names = FALSE)
+
+
+
+prot_pl <- subset(prot_dep, isPlastid == TRUE) #Plastid proteins
+prot_pl <- subset(prot_pl, !is.na(logmrnafc)) #With transcriptomic data
+prot_pl$group <- as.factor(apply(prot_pl[,c("logmrnafc", "logprotfc", "mrnapv","protpv")], 1,
+                               function(x) group(x[1], x[2], x[3], x[4])))
+
+p <- ggplot(prot_pl, aes(x=logprotfc, y=logmrnafc, colour = group))
+p <- p + geom_point(size  = 3)
+p <- p + geom_hline()
+p <- p + geom_vline()
+p <- p + xlab(expression(log [1.4]~(protein~fold~change)))
+p <- p + ylab(expression(log [2]~(transcript~fold~change)))
+ggsave("plots/groups.png", p, dpi = 1200)
+print(p)
+
+
+bk_genes <- scan("background.txt", what = character())
+
+if (ANN_METHOD == "david")
+{
+    library("RDAVIDWebService")
+    david <- DAVIDWebService$new(email='anatoly.urban@phystech.edu')
+    BG <- addList(david, bk_genes, idType="TAIR_ID", listName="bkgrd", listType="Background")
+    setAnnotationCategories(david, c("GOTERM_BP_ALL", "GOTERM_MF_ALL"))
+} else if(ANN_METHOD == "topGO")
+{
+    require(topGO)
+    #     gosdb = read.table("cosmoss_go_melt.txt", sep = "\t", col.names = c("Gene", "GO", "Descr"), 
+    #                        stringsAsFactors = FALSE)
+    #     gosdb <- gosdb[grepl("^Pp.+", gosdb$Gene),]
+    #     gosdb$Gene <- sapply(strsplit(gosdb$Gene, split = '\\.'), "[", 1)
+    #     
+    geneID2GO <- readMappings(file = "cosmoss_go_cast.txt")
+    GO2geneID <- inverseList(geneID2GO)
+    geneNames <- names(geneID2GO)
+    
+    getSigInTerm <- function(term, godata)
+    {
+        sg = sigGenes(GOdata)
+        tg = genesInTerm(GOdata, term)[[1]]
+        paste(intersect(sg,tg), collapse = ", ")
+    }
+}
+
+for (g in levels(prot_pl$group))
+{
+    list_g <- prot_pl[prot_pl$group==g,]
+    write.table(list_g, paste0("groups/", g,"_proteins.txt"),sep="\t", row.names = FALSE, quote = FALSE)
+}
+
+for (g in levels(prot_pl$group))
+{
+    print(paste0("Annotating ", g))
+    
+    if (ANN_METHOD == "david")
+    {
+        list_go <- na.omit(prot_pl[prot_pl$group==g, "TAIR"])
+        n_k <- length((list_go))
+        t_ <- kegg_get(list_go, "ath")
+        names(t_)[1] <- "TAIR"
+        t_ <- merge(t_, prot_pl[,c("TAIR", "Gene", "mrnafc", "protfc")], by = "TAIR")
+        t_ <- t_[,c("TAIR", "Gene", "mrnafc", "protfc", "Orthology", "Definition")]
+        t_ <- unique(t_)
+        write.table(t_, sep = "\t", quote = FALSE, row.names = FALSE,
+                    file = paste0("groups/", g, sprintf("_%02i", n_k),  ".txt"))
+        rm(t_)
+        
+        FG <- addList(david, list_go, idType="TAIR_ID", listName=g, listType="Gene")
+        setCurrentBackgroundPosition(david,
+                                     grep("bkgrd", getBackgroundListNames(david)))
+        setCurrentGeneListPosition(david,
+                                   grep(g, getGeneListNames(david)))
+        ann <- getFunctionalAnnotationChart(david, threshold=DAVID_REQ_PV)
+        
+        setCurrentBackgroundPosition(david,
+                                     grep("bkgrd", getBackgroundListNames(david)))
+        setCurrentGeneListPosition(david,
+                                   grep(g, getGeneListNames(david)))
+        clann <- getClusterReport(david, type = "Term" )#, threshold=DAVID_REQ_PV)
+        
+        for (cl in clann@cluster)
+        {
+            fname <-  paste0("groups/", g, ".clusters.david.txt")
+            write(paste("Enrichment",cl[[1]]), file = fname, append = TRUE)
+            cltab <- cl[[2]][,c("Category", "Term", "Count",
+                                "PValue", "Bonferroni", "Benjamini", "FDR")]
+            cltab <- cltab[cltab$PValue < DAVID_REQ_PV,]
+            if (nrow(cltab) > 0)
+            {
+                suppressWarnings(
+                    write.table(cltab, file = fname, append = TRUE)
+                )
+            } else
+            {
+                write("No significant results!", file = fname, append = TRUE)
+            }
+            write("\n", file = fname, append = TRUE)
+        }
+        
+        #ann <- ann[ann$PValue < DAVID_REQ_PV,]
+        if (nrow(ann) > 0)
+        {
+            ann <- ann[order(ann$PValue), ]
+            write.table(ann[,c("Category", "Term", "Count", "PValue", "Genes")],
+                        file = paste0("groups/", g, ".david.txt"), quote = FALSE, sep = '\t')
+        }else
+        {
+            write("No significant results!", file = paste0("groups/", g, ".david.txt"))
+        }
+    }else if (ANN_METHOD == "topGO")
+    {
+        geneList = prot_pl[prot_pl$group == g, "Gene"]
+        genes = geneList
+        geneList <- factor(as.integer(geneNames %in% geneList))
+        if (length(levels(geneList)) != 2)
+            next
+        
+        names(geneList) <- geneNames
+        
+        for (ont in c("CC", "BP", "MF"))
+        {
+            GOdata <- new("topGOdata",ontology=ont, allGenes = geneList, 
+                          annot = annFUN.gene2GO, gene2GO = geneID2GO)
+            
+            test.stat <- new("classicCount", testStatistic = GOFisherTest, name = "Fisher test")
+            resultFisher <- getSigGroups(GOdata, test.stat)
+            resultFis <- runTest(GOdata, algorithm = "classic", statistic = "fisher")
+            
+            allRes <- GenTable(GOdata, classic = resultFis,
+                               ranksOf = "classic", topNodes = 100)#, orderBy = "weight")
+            allRes <- allRes[allRes$classic < 0.05,]
+            allRes$Genes <- sapply(allRes$GO.ID, FUN = getSigInTerm, godata = GOdata)
+            
+            write.table(allRes, paste0("groups/", g,"_", ont, "_topGO.txt"),sep="\t")
+            
+        }
+    }
+}
+
 ########  HEATMAP ####################
 
 #color <- colorRampPalette(rev(c("#D73027", "#FC8D59", "#FEE090", 
