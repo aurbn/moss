@@ -374,7 +374,7 @@ if (TAIR_ANN == "orgdb")
         names(tmp2) <- c("TAIR", "T_DESC")
         
         tairs_ta <- merge(tmp1, tmp2, by = "TAIR", all = TRUE)
-        write.table(tairs_one, "./tairs_one.txt", sep = "\t", 
+        write.table(tairs_ta, "./tairs_one.txt", sep = "\t", 
                     quote = FALSE, row.names = FALSE)
     }
     tairs_one <-  merge(tairs_one, tairs_ta, by = "TAIR", all.x  = TRUE)
