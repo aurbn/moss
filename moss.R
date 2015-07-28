@@ -860,6 +860,11 @@ empai_all <- empai
 write(paste(nrow(empai), "EMPAI proteins"), LOGNAME, append=T)
 write(paste(sum(empai$isPlastid), "EMPAI proteins is Plastid"), LOGNAME, append=T)
 write(paste(sum(!empai$isPlastid), "EMPAI proteins is not Plastid"), LOGNAME, append=T)
+
+empai_all_pl <- subset(empai_all, isPlastid == TRUE)
+write.table(empai_all_pl, "plots/empaiPlastid.txt", sep="\t", 
+            quote = FALSE, row.names = FALSE)
+
 empai <- empai[empai$empaipv < EMPAI_PV_REQ, ]   # CHECK IT !!!!
 
 
