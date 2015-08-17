@@ -33,6 +33,7 @@ USE_PV_EMPAI <- TRUE
 DAVID_REQ_PV <- 0.05
 KEGG_SP <- "ppp"
 PATHWAYS <- c("00010", "00020", "00030", "00040", "00190", "00195", "00196")
+PATHWAYS <- c("00480", "00130", "00900", "00260", "00906", "00400", "00860")
 ALL_PATHWAYS <- scan("all_kegg.txt", what = character())
 PATHWAYS <- ALL_PATHWAYS
 USE_PV_EMPAI <- FALSE
@@ -667,9 +668,9 @@ rownames(hmap_data_all) <- prot_dep$Gene[ok_]
 dist_all <- dist(hmap_data_all)
 z <- scale(hmap_data_all)
 hcl_row <- hclust(dist_all, method="average")
-dendr <- as.dendrogram(hcl_row)
-ord <- reorder(dendr)
-dendr_c <-  cut(dendr, h=1.5)$upper
+#dendr <- as.dendrogram(hcl_row)
+#ord <- reorder(dendr)
+#dendr_c <-  cut(dendr, h=1.5)$upper
 reorderfun = function(d,w) { reorder(dendr, w) }
 
 
